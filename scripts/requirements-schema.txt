@@ -1,0 +1,2 @@
+# Development only; no Python or third-party modules are needed by the CLI.
+jsonschema==4.23.0

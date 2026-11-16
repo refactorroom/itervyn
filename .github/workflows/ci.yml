@@ -1,0 +1,63 @@
+name: Verify
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  checks:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    env:
+      GOTOOLCHAIN: local
+      GOPROXY: 'off'
+      GOSUMDB: 'off'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: akkaraponph/invaris
+          ref: d770885fd33012d9ff368b25611f8b327d348b6e
+          path: .panda-suite/upstream/invaris
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: akkaraponph/evaris
+          ref: e12566ba22fa2d63fe3ecb68ed61bf3dbd38b065
+          path: .panda-suite/upstream/evaris
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Format
+        run: test -z "$(gofmt -l cmd internal examples)"
+      - name: Build and vet
+        run: |
+          go build ./...
+          go vet ./...
+      - name: Build pinned native tools
+        run: |
+          mkdir -p .panda-suite/build
+          (cd .panda-suite/upstream/invaris && go build -trimpath -o "$GITHUB_WORKSPACE/.panda-suite/build/invaris" ./cmd/invaris)
+          (cd .panda-suite/upstream/evaris && go build -trimpath -o "$GITHUB_WORKSPACE/.panda-suite/build/evaris" ./cmd/evaris)
+          test -x .panda-suite/build/invaris
+          test -x .panda-suite/build/evaris
+      - name: Unit, race and real-provider acceptance
+        run: |
+          export ITERVYN_TEST_INVARIS="$GITHUB_WORKSPACE/.panda-suite/build/invaris"
+          export ITERVYN_TEST_EVARIS="$GITHUB_WORKSPACE/.panda-suite/build/evaris"
+          export ITERVYN_EVIDENCE_DIR="$GITHUB_WORKSPACE/.panda-suite/evidence"
+          go test ./...
+          go test -race ./...
+          go test ./internal/acceptance -count=1 -v
+      - name: Published schemas against actual records
+        run: |
+          python3 -m venv .panda-suite/schema-venv
+          .panda-suite/schema-venv/bin/pip install -r scripts/requirements-schema.txt
+          .panda-suite/schema-venv/bin/python scripts/validate-schemas.py --evidence .panda-suite/evidence
+      - name: Rehearse four-target packaging
+        if: matrix.os == 'ubuntu-latest'
+        run: python3 scripts/package.py
