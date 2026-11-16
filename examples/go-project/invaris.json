@@ -1,0 +1,9 @@
+{
+  "version": "invaris.dev/v1alpha2",
+  "name": "itervyn-go-example",
+  "trustMode": "trusted-local",
+  "networkPolicy": "unrestricted",
+  "policies": [{"id": "no-forbidden-marker", "allowEmpty": false}],
+  "gate": {"requiredGuards": ["marker"], "requiredProofs": [], "precedence": "failure-first", "allowWeakEvidence": false},
+  "guards": [{"id": "marker", "policyId": "no-forbidden-marker", "program": "./guard-bin", "args": ["app.go"], "minInspected": 1}]
+}

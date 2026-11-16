@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "itervyn.config/v1alpha1",
+  "project": {"root": "."},
+  "providers": {
+    "invaris": {"enabled": true, "required": true, "executable": "invaris", "action": "check", "harness": "invaris.json"},
+    "evaris": {"enabled": false, "required": false, "executable": "evaris"}
+  }
+}
