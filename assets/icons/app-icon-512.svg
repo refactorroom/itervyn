@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img"><title>Itervyn — app-icon-512</title><svg x="0" y="0" width="512" height="512" viewBox="0 0 1024 1024"><ns0:defs xmlns:ns0="http://www.w3.org/2000/svg">
+<ns0:linearGradient id="ibg" x1="0" y1="0" x2="1" y2="1"><ns0:stop stop-color="#101629" /><ns0:stop offset="1" stop-color="#060d17" /></ns0:linearGradient>
+<ns0:linearGradient id="iface" x1="0" y1="0" x2="1" y2="1"><ns0:stop stop-color="white" /><ns0:stop offset="1" stop-color="#9ebdcc" /></ns0:linearGradient>
+<ns0:linearGradient id="iglasses" x1="0" y1="0" x2="1" y2="1"><ns0:stop stop-color="#133a46" /><ns0:stop offset="1" stop-color="#041923" /></ns0:linearGradient>
+<ns0:filter id="iglow"><ns0:feGaussianBlur stdDeviation="11" /></ns0:filter></ns0:defs>
+<ns0:rect xmlns:ns0="http://www.w3.org/2000/svg" width="1024" height="1024" rx="170" fill="url(#ibg)" />
+<ns0:circle xmlns:ns0="http://www.w3.org/2000/svg" cx="512" cy="511" r="369" fill="none" stroke="#35f4d7" stroke-width="7" opacity=".3" stroke-dasharray="33 19" />
+<ns0:circle xmlns:ns0="http://www.w3.org/2000/svg" cx="512" cy="511" r="329" fill="none" stroke="#f05db0" stroke-width="9" opacity=".6" />
+<ns0:path xmlns:ns0="http://www.w3.org/2000/svg" d="M223 259 V207 H360 M665 207 H801 V259 M223 766 V816 H356 M668 816 H801 V766" stroke="#30e7cd" stroke-width="17" fill="none" stroke-linecap="square" />
+<ns0:circle xmlns:ns0="http://www.w3.org/2000/svg" cx="362" cy="365" r="99" fill="#121726" stroke="#fc70bd" stroke-width="13" />
+<ns0:circle xmlns:ns0="http://www.w3.org/2000/svg" cx="660" cy="365" r="99" fill="#121726" stroke="#fc70bd" stroke-width="13" />
+<ns0:path xmlns:ns0="http://www.w3.org/2000/svg" d="M265 477 Q283 320 494 319 Q729 293 758 474 L750 609 Q710 751 511 750 Q316 743 270 615Z" fill="url(#iface)" stroke="#0c1727" stroke-width="22" />
+<ns0:ellipse xmlns:ns0="http://www.w3.org/2000/svg" cx="389" cy="505" rx="65" ry="78" fill="#161b2b" />
+<ns0:ellipse xmlns:ns0="http://www.w3.org/2000/svg" cx="642" cy="505" rx="65" ry="78" fill="#161b2b" />
+<ns0:path xmlns:ns0="http://www.w3.org/2000/svg" d="M265 473 Q520 420 760 463 L774 583 Q511 642 255 578Z" fill="#060e1b" stroke="#101927" stroke-width="24" />
+<ns0:path xmlns:ns0="http://www.w3.org/2000/svg" d="M276 483 Q520 444 749 475 L759 568 Q510 617 269 565Z" fill="url(#iglasses)" stroke="#35f7dc" stroke-width="8" />
+<ns0:path xmlns:ns0="http://www.w3.org/2000/svg" d="M320 520 H387 M322 544 H362 M664 514 H710 M677 536 H728" stroke="#56ffe3" stroke-width="10" opacity=".8" />
+<ns0:path xmlns:ns0="http://www.w3.org/2000/svg" d="M450 510 L474 534 L449 557 M497 562 H563" stroke="#59ffe6" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+<ns0:path xmlns:ns0="http://www.w3.org/2000/svg" d="M454 642 Q510 620 570 646 Q559 681 513 687 Q468 682 454 642Z" fill="#142032" />
+<ns0:path xmlns:ns0="http://www.w3.org/2000/svg" d="M514 681 V708 M514 700 Q482 724 461 707 M514 700 Q545 722 568 707" fill="none" stroke="#33475b" stroke-width="9" stroke-linecap="round" />
+<ns0:path xmlns:ns0="http://www.w3.org/2000/svg" d="M355 770 L512 846 L673 770" fill="none" stroke="#f36cad" stroke-width="20" />
+<ns0:rect xmlns:ns0="http://www.w3.org/2000/svg" x="416" y="806" width="191" height="70" rx="18" fill="#0b2331" stroke="#38f4d6" stroke-width="7" />
+<ns0:text xmlns:ns0="http://www.w3.org/2000/svg" x="511" y="854" text-anchor="middle" font-family="Inter Display,Inter,sans-serif" font-size="37" font-weight="900" letter-spacing="4" fill="#defff7">IVN</ns0:text>
+</svg></svg>

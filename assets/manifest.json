@@ -1,0 +1,242 @@
+{
+  "project": "Itervyn",
+  "master": "itervyn-panda-icon.svg",
+  "master_sha256": "5ed83aa5d80ef6f8bc221d91965a499085c5536c2f0c312026f78359c85ef43f",
+  "provenance": "User-supplied vector master; composed locally without AI image generation.",
+  "assets": [
+    {
+      "path": "icons/github-avatar-1024.svg",
+      "width": 1024,
+      "height": 1024,
+      "format": "svg"
+    },
+    {
+      "path": "icons/github-avatar-1024.png",
+      "width": 1024,
+      "height": 1024,
+      "format": "png"
+    },
+    {
+      "path": "icons/app-icon-512.svg",
+      "width": 512,
+      "height": 512,
+      "format": "svg"
+    },
+    {
+      "path": "icons/app-icon-512.png",
+      "width": 512,
+      "height": 512,
+      "format": "png"
+    },
+    {
+      "path": "icons/favicon.svg",
+      "width": 256,
+      "height": 256,
+      "format": "svg"
+    },
+    {
+      "path": "icons/favicon-16.png",
+      "width": 16,
+      "height": 16,
+      "format": "png"
+    },
+    {
+      "path": "icons/favicon-32.png",
+      "width": 32,
+      "height": 32,
+      "format": "png"
+    },
+    {
+      "path": "icons/favicon-48.png",
+      "width": 48,
+      "height": 48,
+      "format": "png"
+    },
+    {
+      "path": "icons/favicon-64.png",
+      "width": 64,
+      "height": 64,
+      "format": "png"
+    },
+    {
+      "path": "icons/favicon-128.png",
+      "width": 128,
+      "height": 128,
+      "format": "png"
+    },
+    {
+      "path": "icons/favicon-256.png",
+      "width": 256,
+      "height": 256,
+      "format": "png"
+    },
+    {
+      "path": "logos/itervyn-horizontal-dark.svg",
+      "width": 1200,
+      "height": 360,
+      "format": "svg"
+    },
+    {
+      "path": "logos/itervyn-horizontal-dark.png",
+      "width": 1200,
+      "height": 360,
+      "format": "png"
+    },
+    {
+      "path": "logos/itervyn-horizontal-light.svg",
+      "width": 1200,
+      "height": 360,
+      "format": "svg"
+    },
+    {
+      "path": "logos/itervyn-horizontal-light.png",
+      "width": 1200,
+      "height": 360,
+      "format": "png"
+    },
+    {
+      "path": "logos/itervyn-horizontal-transparent.svg",
+      "width": 1200,
+      "height": 360,
+      "format": "svg"
+    },
+    {
+      "path": "logos/itervyn-horizontal-transparent.png",
+      "width": 1200,
+      "height": 360,
+      "format": "png"
+    },
+    {
+      "path": "logos/itervyn-symbol-dark.svg",
+      "width": 1024,
+      "height": 1024,
+      "format": "svg"
+    },
+    {
+      "path": "logos/itervyn-symbol-dark.png",
+      "width": 1024,
+      "height": 1024,
+      "format": "png"
+    },
+    {
+      "path": "logos/itervyn-symbol-transparent.svg",
+      "width": 1024,
+      "height": 1024,
+      "format": "svg"
+    },
+    {
+      "path": "logos/itervyn-symbol-transparent.png",
+      "width": 1024,
+      "height": 1024,
+      "format": "png"
+    },
+    {
+      "path": "banners/github-readme-1600x480.svg",
+      "width": 1600,
+      "height": 480,
+      "format": "svg"
+    },
+    {
+      "path": "banners/github-readme-1600x480.png",
+      "width": 1600,
+      "height": 480,
+      "format": "png"
+    },
+    {
+      "path": "banners/github-social-preview-1280x640.svg",
+      "width": 1280,
+      "height": 640,
+      "format": "svg"
+    },
+    {
+      "path": "banners/github-social-preview-1280x640.png",
+      "width": 1280,
+      "height": 640,
+      "format": "png"
+    },
+    {
+      "path": "banners/docs-cover-1600x700.svg",
+      "width": 1600,
+      "height": 700,
+      "format": "svg"
+    },
+    {
+      "path": "banners/docs-cover-1600x700.png",
+      "width": 1600,
+      "height": 700,
+      "format": "png"
+    },
+    {
+      "path": "banners/launch-poster-1600x900.svg",
+      "width": 1600,
+      "height": 900,
+      "format": "svg"
+    },
+    {
+      "path": "banners/launch-poster-1600x900.png",
+      "width": 1600,
+      "height": 900,
+      "format": "png"
+    },
+    {
+      "path": "banners/terminal-concept-1600x600.svg",
+      "width": 1600,
+      "height": 600,
+      "format": "svg"
+    },
+    {
+      "path": "banners/terminal-concept-1600x600.png",
+      "width": 1600,
+      "height": 600,
+      "format": "png"
+    },
+    {
+      "path": "social/feature-card-1200x630.svg",
+      "width": 1200,
+      "height": 630,
+      "format": "svg"
+    },
+    {
+      "path": "social/feature-card-1200x630.png",
+      "width": 1200,
+      "height": 630,
+      "format": "png"
+    },
+    {
+      "path": "social/square-post-1080x1080.svg",
+      "width": 1080,
+      "height": 1080,
+      "format": "svg"
+    },
+    {
+      "path": "social/square-post-1080x1080.png",
+      "width": 1080,
+      "height": 1080,
+      "format": "png"
+    },
+    {
+      "path": "preview/contact-sheet.svg",
+      "width": 1600,
+      "height": 1800,
+      "format": "svg"
+    },
+    {
+      "path": "preview/contact-sheet.png",
+      "width": 1600,
+      "height": 1800,
+      "format": "png"
+    },
+    {
+      "path": "preview/size-check.svg",
+      "width": 1000,
+      "height": 430,
+      "format": "svg"
+    },
+    {
+      "path": "preview/size-check.png",
+      "width": 1000,
+      "height": 430,
+      "format": "png"
+    }
+  ]
+}
