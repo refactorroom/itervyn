@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:itervyn:diagnostic:v1alpha1",
+  "$comment": "Duplicate keys, path safety, provenance and cross-field integrity are additionally validated by the Go reader.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "code",
+    "message",
+    "runId",
+    "status",
+    "evidencePersisted"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "itervyn.diagnostic/v1alpha1"
+    },
+    "code": {
+      "enum": [
+        "INVALID_ARGUMENT",
+        "INVALID_CONFIG",
+        "UNSUPPORTED_SCHEMA",
+        "UNSUPPORTED_TOOL",
+        "UNSUPPORTED_ACTION",
+        "PATH_UNSAFE",
+        "TOOL_MISSING",
+        "HARNESS_MISSING",
+        "PREREQUISITE_MISSING",
+        "TIMEOUT",
+        "CANCELED",
+        "OUTPUT_LIMIT",
+        "OUTPUT_MISSING",
+        "OUTPUT_INVALID",
+        "EXIT_MISMATCH",
+        "EVIDENCE_MISMATCH",
+        "EVIDENCE_CORRUPT",
+        "IO_ERROR",
+        "INTERNAL_ERROR",
+        "INCOMPLETE_RUN",
+        "RUN_NOT_FOUND"
+      ]
+    },
+    "message": {
+      "type": "string"
+    },
+    "runId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "const": "ERROR"
+    },
+    "evidencePersisted": {
+      "const": false
+    }
+  }
+}

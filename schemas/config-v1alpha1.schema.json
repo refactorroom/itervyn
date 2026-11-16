@@ -1,0 +1,260 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:itervyn:config:v1alpha1",
+  "$comment": "Duplicate keys, path safety, provenance and cross-field integrity are additionally validated by the Go reader.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "providers"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "itervyn.config/v1alpha1"
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "root": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "timeoutSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600,
+          "default": 300
+        },
+        "providerTimeoutSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600,
+          "default": 120
+        },
+        "stdoutLimitBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4194304,
+          "default": 4194304
+        },
+        "stderrLimitBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536,
+          "default": 65536
+        },
+        "environmentAllowlist": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+            "not": {
+              "enum": [
+                "PATH",
+                "TMPDIR"
+              ]
+            }
+          },
+          "default": []
+        }
+      }
+    },
+    "providers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "invaris": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "enabled",
+            "required"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "required": {
+              "type": "boolean"
+            },
+            "executable": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^(?:/[^\\u0000\\\\]*|[^/\\\\\\u0000]+)$"
+            },
+            "action": {
+              "const": "check"
+            },
+            "harness": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^/\\\\\\u0000]+$"
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "required": {
+                    "const": true
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "enabled": {
+                    "const": true
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "evaris": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "enabled",
+            "required"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "required": {
+              "type": "boolean"
+            },
+            "executable": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^(?:/[^\\u0000\\\\]*|[^/\\\\\\u0000]+)$"
+            },
+            "store": {
+              "type": "string",
+              "pattern": "^/"
+            },
+            "runId": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32}$"
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "enabled": {
+                    "const": true
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "store",
+                  "runId"
+                ]
+              },
+              "else": {
+                "not": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "store"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "runId"
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "required": {
+                    "const": true
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "enabled": {
+                    "const": true
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "anyOf": [
+        {
+          "required": [
+            "invaris"
+          ],
+          "properties": {
+            "invaris": {
+              "required": [
+                "enabled",
+                "required"
+              ],
+              "properties": {
+                "enabled": {
+                  "const": true
+                },
+                "required": {
+                  "const": true
+                }
+              }
+            }
+          }
+        },
+        {
+          "required": [
+            "evaris"
+          ],
+          "properties": {
+            "evaris": {
+              "required": [
+                "enabled",
+                "required"
+              ],
+              "properties": {
+                "enabled": {
+                  "const": true
+                },
+                "required": {
+                  "const": true
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "directory": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

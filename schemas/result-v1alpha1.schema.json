@@ -1,0 +1,495 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:itervyn:result:v1alpha1",
+  "$comment": "Duplicate keys, path safety, provenance and cross-field integrity are additionally validated by the Go reader.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "runId",
+    "taskId",
+    "status",
+    "nextAction",
+    "providers",
+    "feedback",
+    "warnings",
+    "startedAt",
+    "finishedAt",
+    "configSha256",
+    "projectRoot",
+    "gitRevision",
+    "gitDirty",
+    "artifacts",
+    "evidencePersisted"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "itervyn.result/v1alpha1"
+    },
+    "runId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$"
+    },
+    "taskId": {
+      "type": "null"
+    },
+    "status": {
+      "enum": [
+        "PASS",
+        "FAIL",
+        "INCONCLUSIVE",
+        "ERROR"
+      ]
+    },
+    "nextAction": {
+      "enum": [
+        "COMPLETE",
+        "FIX_AND_REVERIFY",
+        "INVESTIGATE",
+        "STOP"
+      ]
+    },
+    "providers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/provider"
+      }
+    },
+    "feedback": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/feedback"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/feedback"
+      }
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "finishedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "configSha256": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "projectRoot": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "gitRevision": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40,64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "gitDirty": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/artifact"
+      }
+    },
+    "evidencePersisted": {
+      "type": "boolean"
+    }
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "bytes"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5242880
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "projectRoot",
+        "store",
+        "experimentId",
+        "preparationId",
+        "runId",
+        "evaluationId",
+        "caseId",
+        "armId",
+        "runDigest",
+        "oracleDigest"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "working-tree",
+            "imported-run"
+          ]
+        },
+        "projectRoot": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "store": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "experimentId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "preparationId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "runId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evaluationId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "caseId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "armId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "runDigest": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "oracleDigest": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "required",
+        "status",
+        "nativeDecision",
+        "nativeSchemaVersion",
+        "exitCode",
+        "reason",
+        "nativeReasons",
+        "startedAt",
+        "finishedAt",
+        "executableSha256",
+        "scope",
+        "evidence"
+      ],
+      "properties": {
+        "name": {
+          "enum": [
+            "invaris",
+            "evaris"
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "INCONCLUSIVE",
+            "ERROR"
+          ]
+        },
+        "nativeDecision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "nativeSchemaVersion": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "exitCode": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "INVALID_ARGUMENT",
+                "INVALID_CONFIG",
+                "UNSUPPORTED_SCHEMA",
+                "UNSUPPORTED_TOOL",
+                "UNSUPPORTED_ACTION",
+                "PATH_UNSAFE",
+                "TOOL_MISSING",
+                "HARNESS_MISSING",
+                "PREREQUISITE_MISSING",
+                "TIMEOUT",
+                "CANCELED",
+                "OUTPUT_LIMIT",
+                "OUTPUT_MISSING",
+                "OUTPUT_INVALID",
+                "EXIT_MISMATCH",
+                "EVIDENCE_MISMATCH",
+                "EVIDENCE_CORRUPT",
+                "IO_ERROR",
+                "INTERNAL_ERROR",
+                "INCOMPLETE_RUN",
+                "RUN_NOT_FOUND"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "nativeReasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "startedAt": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "finishedAt": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "executableSha256": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          }
+        }
+      }
+    },
+    "feedback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "code",
+        "message",
+        "evidencePath"
+      ],
+      "properties": {
+        "provider": {
+          "anyOf": [
+            {
+              "enum": [
+                "invaris",
+                "evaris"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "code": {
+          "enum": [
+            "INVALID_ARGUMENT",
+            "INVALID_CONFIG",
+            "UNSUPPORTED_SCHEMA",
+            "UNSUPPORTED_TOOL",
+            "UNSUPPORTED_ACTION",
+            "PATH_UNSAFE",
+            "TOOL_MISSING",
+            "HARNESS_MISSING",
+            "PREREQUISITE_MISSING",
+            "TIMEOUT",
+            "CANCELED",
+            "OUTPUT_LIMIT",
+            "OUTPUT_MISSING",
+            "OUTPUT_INVALID",
+            "EXIT_MISMATCH",
+            "EVIDENCE_MISMATCH",
+            "EVIDENCE_CORRUPT",
+            "IO_ERROR",
+            "INTERNAL_ERROR",
+            "INCOMPLETE_RUN",
+            "RUN_NOT_FOUND",
+            "NATIVE_OUTCOME"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "evidencePath": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

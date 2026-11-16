@@ -31,3 +31,8 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Private plans, verification records, builds and compatibility provisioning
+/.panda-suite/
+/.itervyn/
+/dist/

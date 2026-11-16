@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:itervyn:doctor:v1alpha1",
+  "$comment": "Duplicate keys, path safety, provenance and cross-field integrity are additionally validated by the Go reader.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "ready",
+    "checks",
+    "warnings"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "itervyn.doctor/v1alpha1"
+    },
+    "ready": {
+      "type": "boolean"
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "provider",
+          "required",
+          "code",
+          "ready"
+        ],
+        "properties": {
+          "provider": {
+            "enum": [
+              "invaris",
+              "evaris",
+              "evidence"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "code": {
+            "enum": [
+              "",
+              "INVALID_ARGUMENT",
+              "INVALID_CONFIG",
+              "UNSUPPORTED_SCHEMA",
+              "UNSUPPORTED_TOOL",
+              "UNSUPPORTED_ACTION",
+              "PATH_UNSAFE",
+              "TOOL_MISSING",
+              "HARNESS_MISSING",
+              "PREREQUISITE_MISSING",
+              "TIMEOUT",
+              "CANCELED",
+              "OUTPUT_LIMIT",
+              "OUTPUT_MISSING",
+              "OUTPUT_INVALID",
+              "EXIT_MISMATCH",
+              "EVIDENCE_MISMATCH",
+              "EVIDENCE_CORRUPT",
+              "IO_ERROR",
+              "INTERNAL_ERROR",
+              "INCOMPLETE_RUN",
+              "RUN_NOT_FOUND"
+            ]
+          },
+          "ready": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/feedback"
+      }
+    }
+  },
+  "$defs": {
+    "feedback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "code",
+        "message",
+        "evidencePath"
+      ],
+      "properties": {
+        "provider": {
+          "anyOf": [
+            {
+              "enum": [
+                "invaris",
+                "evaris"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "code": {
+          "enum": [
+            "INVALID_ARGUMENT",
+            "INVALID_CONFIG",
+            "UNSUPPORTED_SCHEMA",
+            "UNSUPPORTED_TOOL",
+            "UNSUPPORTED_ACTION",
+            "PATH_UNSAFE",
+            "TOOL_MISSING",
+            "HARNESS_MISSING",
+            "PREREQUISITE_MISSING",
+            "TIMEOUT",
+            "CANCELED",
+            "OUTPUT_LIMIT",
+            "OUTPUT_MISSING",
+            "OUTPUT_INVALID",
+            "EXIT_MISMATCH",
+            "EVIDENCE_MISMATCH",
+            "EVIDENCE_CORRUPT",
+            "IO_ERROR",
+            "INTERNAL_ERROR",
+            "INCOMPLETE_RUN",
+            "RUN_NOT_FOUND",
+            "NATIVE_OUTCOME"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "evidencePath": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
