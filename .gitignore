@@ -27,6 +27,12 @@ go.work.sum
 
 # env file
 .env
+.env.*
+!.env.example
+
+# macOS metadata
+.DS_Store
+._*
 
 # Editor/IDE
 # .idea/
@@ -36,3 +42,4 @@ go.work.sum
 /.panda-suite/
 /.itervyn/
 /dist/
+/2026-11-16-itervyn-v0.1.0-plan.md
