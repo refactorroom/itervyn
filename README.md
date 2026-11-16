@@ -2,6 +2,8 @@
 
 Execute. Verify. Refine. Repeat.
 
+![Itervyn cyborg panda poster](assets/readme-itervyn-cyborg-panda-poster.svg)
+
 Itervyn v0.1.0 is a local verification CLI for coding agents, terminal users and
 CI. It runs trusted Invaris checks and evaluates explicitly identified imported
 Evaris runs, validates their evidence, and records a structured decision. The
