@@ -143,6 +143,17 @@ func TestRealInvarisCorrection(t *testing.T) {
 			t.Fatalf("want %s got %+v", tc.want, r)
 		}
 		ids = append(ids, r.RunID)
+		if tc.want == verify.Fail {
+			// Invaris 0.5 copies the guard's 1-based line into the finding.
+			var native invarisprovider.Report
+			b, e := os.ReadFile(filepath.Join(root, ".itervyn/runs", r.RunID, "providers/invaris.json"))
+			if e != nil || json.Unmarshal(b, &native) != nil || len(native.Checks) != 1 || len(native.Checks[0].Findings) != 1 {
+				t.Fatal("native rejection evidence unreadable", e)
+			}
+			if l := native.Checks[0].Findings[0].Line; l == nil || *l != 2 {
+				t.Fatalf("finding line not carried: %s", b)
+			}
+		}
 	}
 	if ids[0] == ids[1] || ids[1] == ids[2] {
 		t.Fatal("run overwritten")
@@ -181,6 +192,10 @@ func prepareImport(t *testing.T, bin, mode string) (string, string) {
 		result = "wrong\n"
 	}
 	write(t, filepath.Join(workspace, "result.txt"), []byte(result))
+	if mode == "unauthorized" {
+		// A change outside allowedChanges fails source authorization.
+		write(t, filepath.Join(workspace, "extra.txt"), []byte("not allowed\n"))
+	}
 	write(t, filepath.Join(root, "response.txt"), []byte("Synthetic deterministic control; no agent session.\n"))
 	observed := map[string]any{}
 	for _, k := range []string{"host", "model", "modelSettings", "tools", "permissions", "budget", "contextId", "freshContext", "startedAt", "finishedAt", "loadedInstructions", "agentClaim"} {
@@ -193,7 +208,7 @@ func prepareImport(t *testing.T, bin, mode string) (string, string) {
 }
 func TestRealEvarisExistingImport(t *testing.T) {
 	bin := tool(t, "evaris")
-	for _, mode := range []string{"pass", "fail", "review", "command", "verification"} {
+	for _, mode := range []string{"pass", "fail", "unauthorized", "review", "command", "verification"} {
 		t.Run(mode, func(t *testing.T) {
 			nativeRoot, id := prepareImport(t, bin, mode)
 			project := temp(t)
@@ -201,7 +216,7 @@ func TestRealEvarisExistingImport(t *testing.T) {
 			c.Providers.Evaris = config.Evaris{Enabled: true, Required: true, Executable: bin, Store: filepath.Join(nativeRoot, "store"), RunID: id}
 			r := run(t, project, c)
 			want := verify.Pass
-			if mode == "fail" {
+			if mode == "fail" || mode == "unauthorized" {
 				want = verify.Fail
 			} else if mode != "pass" {
 				want = verify.Inconclusive
@@ -225,6 +240,12 @@ func TestRealEvarisExistingImport(t *testing.T) {
 				bad := run(t, project, c)
 				if bad.Status != verify.Inconclusive || bad.Providers[0].Status != verify.Error {
 					t.Fatal("corrupt native store accepted")
+				}
+			}
+			if mode == "unauthorized" {
+				b, e := os.ReadFile(filepath.Join(project, ".itervyn/runs", r.RunID, "providers/evaris-evaluation.json"))
+				if e != nil || !strings.Contains(string(b), `"source-authorization"`) {
+					t.Fatalf("source authorization not graded: %v %s", e, b)
 				}
 			}
 			if mode == "command" {

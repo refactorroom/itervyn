@@ -7,7 +7,8 @@ import adapters. Evidence storage implements the application-owned Store interfa
 No public Go API, registry, scheduler, server, guard engine or grading engine exists.
 
 The original code uses Apache-2.0. External Invaris and Evaris binaries are separate
-requirements. Native report DTOs follow their pinned Apache-2.0 schema contracts;
+requirements. Native report DTOs follow the Apache-2.0 schema contracts of the supported
+release lines;
 no implementation or skills are vendored. `testdata` contains authored controls,
 not real-agent performance measurements.
 

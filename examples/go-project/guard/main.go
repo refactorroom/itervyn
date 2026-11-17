@@ -26,10 +26,11 @@ func main() {
 	type finding struct {
 		PolicyID string `json:"policyId"`
 		Path     string `json:"path"`
+		Line     int    `json:"line"`
 	}
 	f := []finding{}
-	if bytes.Contains(b, []byte("FORBIDDEN")) {
-		f = append(f, finding{"no-forbidden-marker", path})
+	if i := bytes.Index(b, []byte("FORBIDDEN")); i >= 0 {
+		f = append(f, finding{"no-forbidden-marker", path, bytes.Count(b[:i], []byte("\n")) + 1})
 	}
 	_ = json.NewEncoder(os.Stdout).Encode(struct {
 		Version   string    `json:"version"`

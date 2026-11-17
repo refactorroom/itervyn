@@ -11,6 +11,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -101,21 +103,61 @@ func Identify(executable, provider string) (Identity, error) {
 			out.Dirty = s.Value == "true"
 		}
 	}
-	version, revision := "", ""
-	switch provider {
-	case "invaris":
-		version = "v0.3.0"
-		revision = "d770885fd33012d9ff368b25611f8b327d348b6e"
-	case "evaris":
-		version = "v0.2.0"
-		revision = "e12566ba22fa2d63fe3ecb68ed61bf3dbd38b065"
-	default:
-		return out, config.Err("UNSUPPORTED_TOOL", "unknown provider")
+	if err = Supported(out, provider); err != nil {
+		return out, err
 	}
-	if out.Module != "github.com/akkaraponph/"+provider || out.Dirty || (out.Version != version && out.Revision != revision) {
-		return out, config.Err("UNSUPPORTED_TOOL", "unsupported provider build")
+	return out, probeVersion(out, provider)
+}
+
+// probeVersion runs `<provider> --version` on the identified file and requires
+// it to print exactly "<provider> <build version>". Both the static build
+// identity and the release's own report must name the same supported release.
+func probeVersion(id Identity, provider string) error {
+	tmp, err := os.MkdirTemp("", "itervyn-version-")
+	if err != nil {
+		return err
 	}
-	return out, nil
+	defer os.RemoveAll(tmp)
+	o := (Local{}).Run(context.Background(), Spec{ExpectedSHA256: id.SHA256, Executable: id.Path, Args: []string{"--version"}, Dir: tmp, Env: []string{"PATH=" + os.Getenv("PATH"), "TMPDIR=" + tmp}, Timeout: 10 * time.Second, StdoutLimit: 256, StderrLimit: 4096})
+	if o.Reason == "EVIDENCE_MISMATCH" || o.Reason == "TOOL_MISSING" {
+		return config.Err(o.Reason, "provider changed during identification")
+	}
+	if o.Reason != "" || o.ExitCode == nil || *o.ExitCode != 0 || strings.TrimSuffix(string(o.Stdout), "\n") != provider+" "+id.Version {
+		return config.Err("UNSUPPORTED_TOOL", "provider --version does not match its build identity")
+	}
+	return nil
+}
+
+// Supported reports whether a build identity is an accepted provider release.
+func Supported(id Identity, provider string) error {
+	lines, ok := SupportedReleases[provider]
+	if !ok {
+		return config.Err("UNSUPPORTED_TOOL", "unknown provider")
+	}
+	if id.Module != "github.com/akkaraponph/"+provider || id.Dirty || !slices.Contains(lines, ReleaseLine(id.Version)) {
+		return config.Err("UNSUPPORTED_TOOL", "unsupported provider build")
+	}
+	return nil
+}
+
+// SupportedReleases are the release lines (major.minor) whose wire contracts
+// Itervyn implements, per provider. A binary is accepted only when its Go build
+// identity names the provider's module at a clean, tagged release on one of
+// these lines. Development builds, pseudo-versions, prereleases and other
+// lines fail closed: their contracts have not been checked against Itervyn.
+var SupportedReleases = map[string][]string{"invaris": {"0.5"}, "evaris": {"0.4"}}
+
+var release = regexp.MustCompile(`^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
+
+// ReleaseLine returns "major.minor" for a tagged release version such as
+// v0.5.2, or "" for anything else ("(devel)", pseudo-versions, prereleases,
+// build metadata).
+func ReleaseLine(version string) string {
+	m := release.FindStringSubmatch(version)
+	if m == nil {
+		return ""
+	}
+	return m[1] + "." + m[2]
 }
 func Environment(names []string, tmp string) []string {
 	e := []string{"PATH=" + os.Getenv("PATH"), "TMPDIR=" + tmp}

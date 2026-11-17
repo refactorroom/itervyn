@@ -34,7 +34,7 @@ Release gates:
 
 1. Public contracts and requirement acceptance tests pass; strict JSON and exits
    agree with [configuration](configuration.md).
-2. Real pinned Invaris and Evaris tests pass on macOS and Linux, separately from
+2. Real Invaris and Evaris tests for every supported release line pass on macOS and Linux, separately from
    fake-provider tests; missing setup or skipped tests cannot count as evidence.
 3. Native process-group, environment, output, path and integrity tests pass and
    focused review has no unresolved high-impact execution/evidence defect.

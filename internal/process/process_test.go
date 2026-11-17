@@ -7,11 +7,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/akkaraponph/itervyn/internal/config"
 )
 
 func TestProcessHelper(t *testing.T) {
@@ -156,5 +159,113 @@ func TestLimitsAndCancellation(t *testing.T) {
 	o := (Local{}).Run(context.Background(), s)
 	if o.ExitCode == nil || *o.ExitCode != 7 || o.Reason != "" {
 		t.Fatal(o)
+	}
+}
+
+func TestSupportedReleases(t *testing.T) {
+	ok := map[string]Identity{
+		"invaris": {Module: "github.com/akkaraponph/invaris", Version: "v0.5.0"},
+		"evaris":  {Module: "github.com/akkaraponph/evaris", Version: "v0.4.0"},
+	}
+	for provider, id := range ok {
+		if e := Supported(id, provider); e != nil {
+			t.Fatal(provider, e)
+		}
+		patch := id
+		patch.Version = strings.TrimSuffix(id.Version, "0") + "7"
+		if e := Supported(patch, provider); e != nil {
+			t.Fatal("patch release refused", patch, e)
+		}
+	}
+	refused := []struct {
+		provider string
+		id       Identity
+	}{
+		{"invaris", Identity{Module: "github.com/akkaraponph/invaris", Version: "v0.3.0"}},
+		{"invaris", Identity{Module: "github.com/akkaraponph/invaris", Version: "v0.4.0"}},
+		{"invaris", Identity{Module: "github.com/akkaraponph/invaris", Version: "v0.6.0"}},
+		{"invaris", Identity{Module: "github.com/akkaraponph/invaris", Version: "v1.5.0"}},
+		{"invaris", Identity{Module: "github.com/akkaraponph/invaris", Version: "(devel)", Revision: "ca79f9696f783094b6154f0c59414cff6ee483e6"}},
+		{"invaris", Identity{Module: "github.com/akkaraponph/invaris", Version: "v0.5.1-0.20261117072319-ca79f9696f78"}},
+		{"invaris", Identity{Module: "github.com/akkaraponph/invaris", Version: "v0.5.0-rc.1"}},
+		{"invaris", Identity{Module: "github.com/akkaraponph/invaris", Version: "v0.5.0+dirty"}},
+		{"invaris", Identity{Module: "github.com/akkaraponph/invaris", Version: "v0.05.0"}},
+		{"invaris", Identity{Module: "github.com/akkaraponph/invaris", Version: "v0.5.0", Dirty: true}},
+		{"invaris", Identity{Module: "github.com/akkaraponph/evaris", Version: "v0.5.0"}},
+		{"invaris", Identity{Module: "example.com/invaris", Version: "v0.5.0"}},
+		{"evaris", Identity{Module: "github.com/akkaraponph/evaris", Version: "v0.2.0"}},
+		{"evaris", Identity{Module: "github.com/akkaraponph/evaris", Version: "v0.5.0"}},
+		{"evaris", Identity{Module: "github.com/akkaraponph/invaris", Version: "v0.4.0"}},
+		{"other", Identity{Module: "github.com/akkaraponph/other", Version: "v0.5.0"}},
+	}
+	for _, tc := range refused {
+		if e := Supported(tc.id, tc.provider); config.Code(e) != "UNSUPPORTED_TOOL" {
+			t.Fatal("accepted", tc.provider, tc.id, e)
+		}
+	}
+	// The test binary itself is a Go build of another module.
+	if _, e := Identify(os.Args[0], "invaris"); config.Code(e) != "UNSUPPORTED_TOOL" {
+		t.Fatal(e)
+	}
+	script := filepath.Join(t.TempDir(), "invaris")
+	if e := os.WriteFile(script, []byte("#!/bin/sh\necho invaris v0.5.0\n"), 0700); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := Identify(script, "invaris"); config.Code(e) != "UNSUPPORTED_TOOL" {
+		t.Fatal("launcher script accepted", e)
+	}
+}
+
+// fakeProvider builds a clean, tagged Go binary of the provider's module that
+// prints say for --version.
+func fakeProvider(t *testing.T, provider, tag, say string) string {
+	t.Helper()
+	if _, e := exec.LookPath("git"); e != nil {
+		t.Skip("git unavailable")
+	}
+	src := t.TempDir()
+	write := func(name, body string) {
+		if e := os.WriteFile(filepath.Join(src, name), []byte(body), 0600); e != nil {
+			t.Fatal(e)
+		}
+	}
+	write("go.mod", "module github.com/akkaraponph/"+provider+"\n\ngo 1.22\n")
+	write("main.go", "package main\n\nimport \"fmt\"\n\nfunc main() { fmt.Println("+strconv.Quote(say)+") }\n")
+	git := func(args ...string) {
+		cmd := exec.Command("git", append([]string{"-c", "user.name=t", "-c", "user.email=t@example.invalid", "-c", "commit.gpgsign=false", "-c", "tag.gpgsign=false"}, args...)...)
+		cmd.Dir = src
+		if b, e := cmd.CombinedOutput(); e != nil {
+			t.Fatal(e, string(b))
+		}
+	}
+	git("init", "-q")
+	git("add", ".")
+	git("commit", "-q", "-m", "fake")
+	git("tag", tag)
+	bin := filepath.Join(t.TempDir(), provider)
+	cmd := exec.Command(filepath.Join(runtime.GOROOT(), "bin", "go"), "build", "-o", bin, ".")
+	cmd.Dir = src
+	cmd.Env = append(os.Environ(), "GOFLAGS=-buildvcs=true", "GOTOOLCHAIN=local")
+	if b, e := cmd.CombinedOutput(); e != nil {
+		t.Fatal(e, string(b))
+	}
+	return bin
+}
+func TestVersionProbe(t *testing.T) {
+	bin := fakeProvider(t, "invaris", "v0.5.3", "invaris v0.5.3")
+	id, e := Identify(bin, "invaris")
+	if e != nil || id.Version != "v0.5.3" || id.Dirty {
+		t.Fatal(id, e)
+	}
+	for name, bin := range map[string]string{
+		"mismatched --version": fakeProvider(t, "invaris", "v0.5.3", "invaris v0.5.4"),
+		"dev --version":        fakeProvider(t, "invaris", "v0.5.3", "invaris dev"),
+		"other tool name":      fakeProvider(t, "invaris", "v0.5.3", "evaris v0.5.3"),
+		"unsupported line":     fakeProvider(t, "evaris", "v0.5.0", "evaris v0.5.0"),
+	} {
+		provider := filepath.Base(bin)
+		if _, e := Identify(bin, provider); config.Code(e) != "UNSUPPORTED_TOOL" {
+			t.Fatal(name, "accepted", e)
+		}
 	}
 }

@@ -14,7 +14,7 @@ go build -trimpath -o "$example_dir/guard-bin" ./examples/go-project/guard
 itervyn verify --config "$example_dir/itervyn.json" --format json
 ```
 
-Install approved Invaris v0.3.0 first or put its absolute executable path in the
+Install Invaris 0.5.x first or put its absolute executable path in the
 copied itervyn.json. Change SAFE to FORBIDDEN in the copied app.go, observe exit 1
 and FAIL, restore SAFE, and observe a new PASS run. Evaris remains disabled until
 an actual native imported-run context is configured. Private output belongs in

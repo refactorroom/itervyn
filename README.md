@@ -9,8 +9,9 @@ CI. It runs trusted Invaris checks and evaluates explicitly identified imported
 Evaris runs, validates their evidence, and records a structured decision. The
 agent owns code changes and the correction loop.
 
-Requires Linux or macOS and Go 1.27.4 to build. Runtime integrations are pinned to
-**Invaris v0.3.0** and **Evaris v0.2.0**. Other builds fail closed. Only Invaris's
+Requires Linux or macOS and Go 1.27.4 to build. Runtime integrations support the
+**Invaris 0.5.x** and **Evaris 0.4.x** release lines (see
+[compatibility](docs/integration.md#compatibility)). Other builds fail closed. Only Invaris's
 native v1alpha2 structured command `check` profile is supported. Evaris preparation
 and import happen separately; command graders and embedded Invaris verification
 are not authorized by Itervyn v0.1.0.
@@ -24,14 +25,21 @@ go build -trimpath -o /tmp/itervyn ./cmd/itervyn
 
 `init` never overwrites a file. It creates Itervyn configuration, not guard rules.
 `doctor` reports missing tools/harnesses and may create a private permission probe;
-it does not run verification. Install the approved upstream binaries separately:
+it does not run verification beyond each provider's `--version`. Install the
+upstream binaries separately, either from Go:
 
 ```sh
-go install github.com/akkaraponph/invaris/cmd/invaris@v0.3.0
-go install github.com/akkaraponph/evaris/cmd/evaris@v0.2.0
+go install github.com/akkaraponph/invaris/cmd/invaris@v0.5.0
+go install github.com/akkaraponph/evaris/cmd/evaris@v0.4.0
 ```
 
-Put their installation directory on PATH, or use absolute executable paths in
+or from npm (`npm install invaris-cli@0.5 evaris-cli@0.4`). The npm `bin`
+entries are Node.js launchers behind symbolic links, which Itervyn refuses; set
+`executable` to the native binary inside the package instead:
+`node_modules/invaris-cli/platforms/<os>_<arch>/invaris` and
+`node_modules/evaris-cli/binaries/evaris-<os>-<arch>` (`<arch>` is `amd64` or `arm64`).
+
+Put the Go installation directory on PATH, or use absolute executable paths in
 configuration. These installation commands need network access unless cached.
 Verification itself needs no network service; trusted external tools can still
 access the network and filesystem.

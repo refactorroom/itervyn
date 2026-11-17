@@ -66,7 +66,8 @@ func doctor(ctx context.Context, c config.Resolved, jsonMode bool, stdout, stder
 		}
 		add(p.name, p.required, err)
 	}
-	// Only this owned permission probe is written; no guard/provider executes.
+	// Only this owned permission probe is written. Providers run only
+	// `--version` during identification; no guard or verification executes.
 	err := config.CheckDescendants(c.ProjectRoot, c.Evidence.Directory, true)
 	if err == nil {
 		anchor, e := os.OpenRoot(c.ProjectRoot)

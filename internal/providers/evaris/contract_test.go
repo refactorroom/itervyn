@@ -85,3 +85,26 @@ func TestExistingRunAdapter(t *testing.T) {
 		t.Fatal(out, called)
 	}
 }
+
+// Evaris 0.4 adds an optional verification message and finding line.
+func TestVerificationAdditions(t *testing.T) {
+	e := evaluation()
+	e.Assessment, e.Execution, e.AgentOutcome = "FAIL", "COMPLETE", "VIOLATED"
+	e.Verification = &Verification{Required: true, Status: "REJECT", Evidence: []FileRef{}, Findings: []Finding{{PolicyID: "p", RuleID: "r", Path: "a.go", Line: verify.Ptr(4)}}, Message: "Invaris rejected the delivered tree."}
+	b, _ := json.Marshal(e)
+	if _, err := parse(b, e.RunID, verify.Ptr(1)); err != nil {
+		t.Fatal(err)
+	}
+	legacy := strings.Replace(strings.Replace(string(b), `"line":4,`, ``, 1), `"message":"Invaris rejected the delivered tree.",`, ``, 1)
+	if strings.Contains(legacy, `"line"`) || strings.Count(legacy, `"message"`) != 2 {
+		t.Fatal("fixture still carries additions", legacy)
+	}
+	if _, err := parse([]byte(legacy), e.RunID, verify.Ptr(1)); err != nil {
+		t.Fatal(err)
+	}
+	for _, bad := range []string{strings.Replace(string(b), `"line":4`, `"line":0`, 1), strings.Replace(string(b), `"line":4`, `"line":4,"column":1`, 1), strings.Replace(string(b), `"message":"Invaris`, `"message":5,"x":"Invaris`, 1)} {
+		if _, err := parse([]byte(bad), e.RunID, verify.Ptr(1)); config.Code(err) != "OUTPUT_INVALID" {
+			t.Fatal("accepted", err, bad)
+		}
+	}
+}
