@@ -80,16 +80,35 @@ enforce itself against an actor able to remove it. Preserve private run output i
 an access-controlled CI artifact when required. Avoid publishing raw streams.
 An Evaris store must be prepared/imported before this step if Evaris is required.
 
-## Compatibility pins
+## Compatibility
 
-| Tool | Tested integration target | Native contract |
-| --- | --- | --- |
-| Invaris | v0.3.0 / d770885fd33012d9ff368b25611f8b327d348b6e | native v1alpha2 check harness/evidence only |
-| Evaris | v0.2.0 / e12566ba22fa2d63fe3ecb68ed61bf3dbd38b065 | v1alpha1 evaluation of an existing imported run |
+Itervyn accepts a provider binary only when all of these hold:
 
-Build identity must contain the expected module and release version or clean
-pinned VCS revision. A version string alone is not evidence of a passing native
-operation. New schema shapes/profiles need explicit compatibility work. Evaris's
-embedded Invaris support was pinned upstream to an older source revision; matching
-the v1alpha2 label does not establish interchangeability with newer shapes.
-No store migrations or mixed-schema fallback are performed.
+1. It is a regular executable file, not a symbolic link or script launcher.
+2. Its Go build identity names the provider's module
+   (`github.com/akkaraponph/invaris` or `github.com/akkaraponph/evaris`) at a
+   clean, tagged release `vX.Y.Z` whose `X.Y` is a supported release line.
+   Development builds (`(devel)`), pseudo-versions, prereleases and modified
+   trees fail closed.
+3. `<tool> --version` exits 0 and prints exactly `<tool> vX.Y.Z`, the same
+   version as the build identity.
+
+Anything else is `UNSUPPORTED_TOOL`; a missing or linked executable is
+`TOOL_MISSING`. The executable's SHA-256 is pinned between identification and
+execution, and recorded with each run.
+
+| Itervyn | Tool | Release | `--version` | Contract read | Status |
+| --- | --- | --- | --- | --- | --- |
+| 0.1.x (this branch) | Invaris | 0.5.x | `invaris v0.5.Z` | `invaris.dev/v1alpha2` check harness, `invaris.evidence/v1alpha2` evidence; findings may carry `line` | Tested: v0.5.0 (npm `invaris-cli@0.5.0`) and the pending 0.5.1 fixes |
+| 0.1.x (this branch) | Evaris | 0.4.x | `evaris v0.4.Z` | `evaris.evaluation/v1alpha1` of an existing imported run; verification may carry `message`, its findings `line` | Tested: v0.4.0 (npm `evaris-cli@0.4.0`) and the pending 0.4.1 fixes |
+| 0.1.x (this branch) | either | any other release line, development build or pseudo-version | any | not checked | Refused, `UNSUPPORTED_TOOL` |
+| 0.1.0 | Invaris | v0.3.0 / `d770885` | none | `invaris.evidence/v1alpha2` without `line` | Legacy; refused by this branch |
+| 0.1.0 | Evaris | v0.2.0 / `e12566b` | `evaris v0.2.0` | `evaris.evaluation/v1alpha1` without verification `message` | Legacy; refused by this branch |
+
+Itervyn reads `evaris.evaluation/v1alpha1` only. Evaris reports
+(`evaris.report/v1alpha2`) and runs (`evaris.run/v1alpha2`) stay inside the
+Evaris store and are not decoded. Decoding is strict: an unknown field or a newer
+schema version is refused rather than ignored, so widening `SupportedReleases`
+in `internal/process/process.go` needs a contract review and new real-binary
+tests against that release. No store migrations or mixed-schema fallback are
+performed.

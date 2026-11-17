@@ -1,7 +1,7 @@
 package evaris
 
-// Wire contracts follow Evaris v0.2.0 (Apache-2.0), source
-// e12566ba22fa2d63fe3ecb68ed61bf3dbd38b065. Grading/store algorithms remain upstream.
+// Wire contracts follow the Evaris release lines in process.SupportedReleases
+// (0.4.x, source v0.4.0, Apache-2.0). Grading/store algorithms remain upstream.
 import (
 	"github.com/akkaraponph/itervyn/internal/config"
 	"time"
@@ -19,7 +19,9 @@ type Finding struct {
 	PolicyID string `json:"policyId"`
 	RuleID   string `json:"ruleId"`
 	Path     string `json:"path"`
-	Message  string `json:"message"`
+	// Line is the 1-based line Invaris reported (Evaris 0.4+).
+	Line    *int   `json:"line" optional:"true"`
+	Message string `json:"message"`
 }
 type Verification struct {
 	Required      bool      `json:"required"`
@@ -31,7 +33,9 @@ type Verification struct {
 	Executable    *FileRef  `json:"executable"`
 	Evidence      []FileRef `json:"evidence"`
 	Reason        string    `json:"reason"`
-	Findings      []Finding `json:"findings"`
+	// Message is a catalogue message naming the failing step (Evaris 0.4+).
+	Message  string    `json:"message" optional:"true"`
+	Findings []Finding `json:"findings"`
 }
 type Grader struct {
 	CriterionID   string    `json:"criterionId"`
@@ -115,6 +119,11 @@ func parse(b []byte, run string, exit *int) (Evaluation, error) {
 		}
 		for _, r := range v.Evidence {
 			if !config.SafeRelative(r.Path) || !config.DigestPattern.MatchString(r.SHA256) || r.Bytes < 0 {
+				return bad()
+			}
+		}
+		for _, f := range v.Findings {
+			if f.Line != nil && *f.Line < 1 {
 				return bad()
 			}
 		}

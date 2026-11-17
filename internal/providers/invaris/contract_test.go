@@ -135,3 +135,23 @@ func TestAdapterFailureBoundary(t *testing.T) {
 		t.Fatal(out)
 	}
 }
+
+// Invaris 0.5 adds an optional 1-based finding line; reports without it are unchanged.
+func TestFindingLine(t *testing.T) {
+	h, r := report(t, "REJECT")
+	b, _ := json.Marshal(r)
+	without := strings.Replace(string(b), `"line":null,`, ``, 1)
+	if strings.Contains(without, `"line"`) {
+		t.Fatal("fixture still carries line")
+	}
+	for _, body := range []string{without, strings.Replace(without, `"path":"source.txt"`, `"path":"source.txt","line":12`, 1)} {
+		if _, e := validateReport([]byte(body), h, r.Target, *r.ConfigDigest, verify.Ptr(1)); e != nil {
+			t.Fatal(e, body)
+		}
+	}
+	for _, body := range []string{strings.Replace(without, `"path":"source.txt"`, `"path":"source.txt","line":0`, 1), strings.Replace(without, `"path":"source.txt"`, `"path":"source.txt","line":"12"`, 1), strings.Replace(without, `"path":"source.txt"`, `"path":"source.txt","column":3`, 1)} {
+		if _, e := validateReport([]byte(body), h, r.Target, *r.ConfigDigest, verify.Ptr(1)); config.Code(e) != "OUTPUT_INVALID" {
+			t.Fatal("accepted", e, body)
+		}
+	}
+}

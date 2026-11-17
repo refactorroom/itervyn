@@ -19,13 +19,13 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: akkaraponph/invaris
-          ref: d770885fd33012d9ff368b25611f8b327d348b6e
+          ref: v0.5.0
           path: .panda-suite/upstream/invaris
           persist-credentials: false
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: akkaraponph/evaris
-          ref: e12566ba22fa2d63fe3ecb68ed61bf3dbd38b065
+          ref: v0.4.0
           path: .panda-suite/upstream/evaris
           persist-credentials: false
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
@@ -38,13 +38,13 @@ jobs:
         run: |
           go build ./...
           go vet ./...
-      - name: Build pinned native tools
+      - name: Build supported native tools from release tags
         run: |
           mkdir -p .panda-suite/build
           (cd .panda-suite/upstream/invaris && go build -trimpath -o "$GITHUB_WORKSPACE/.panda-suite/build/invaris" ./cmd/invaris)
           (cd .panda-suite/upstream/evaris && go build -trimpath -o "$GITHUB_WORKSPACE/.panda-suite/build/evaris" ./cmd/evaris)
-          test -x .panda-suite/build/invaris
-          test -x .panda-suite/build/evaris
+          test "$(.panda-suite/build/invaris --version)" = "invaris v0.5.0"
+          test "$(.panda-suite/build/evaris --version)" = "evaris v0.4.0"
       - name: Unit, race and real-provider acceptance
         run: |
           export ITERVYN_TEST_INVARIS="$GITHUB_WORKSPACE/.panda-suite/build/invaris"
@@ -52,6 +52,14 @@ jobs:
           export ITERVYN_EVIDENCE_DIR="$GITHUB_WORKSPACE/.panda-suite/evidence"
           go test ./...
           go test -race ./...
+          go test ./internal/acceptance -count=1 -v
+      - name: Real-provider acceptance with released npm binaries
+        run: |
+          mkdir -p .panda-suite/npm
+          npm install --prefix .panda-suite/npm --ignore-scripts --no-audit --no-fund invaris-cli@0.5.0 evaris-cli@0.4.0
+          os=$(go env GOOS); arch=$(go env GOARCH)
+          export ITERVYN_TEST_INVARIS="$GITHUB_WORKSPACE/.panda-suite/npm/node_modules/invaris-cli/platforms/${os}_${arch}/invaris"
+          export ITERVYN_TEST_EVARIS="$GITHUB_WORKSPACE/.panda-suite/npm/node_modules/evaris-cli/binaries/evaris-${os}-${arch}"
           go test ./internal/acceptance -count=1 -v
       - name: Published schemas against actual records
         run: |

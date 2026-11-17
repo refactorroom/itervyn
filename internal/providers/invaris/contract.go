@@ -1,7 +1,8 @@
 package invaris
 
-// Wire DTOs follow Invaris v0.3.0's Apache-2.0 harness/evidence contracts at
-// d770885fd33012d9ff368b25611f8b327d348b6e. No guard implementation is copied.
+// Wire DTOs follow the Apache-2.0 harness/evidence contracts of the Invaris
+// release lines in process.SupportedReleases (0.5.x, source v0.5.0). No guard
+// implementation is copied.
 import (
 	"encoding/json"
 	"github.com/akkaraponph/itervyn/internal/config"
@@ -126,7 +127,9 @@ type Finding struct {
 	PolicyID string `json:"policyId"`
 	RuleID   string `json:"ruleId"`
 	Path     string `json:"path"`
-	Message  string `json:"message"`
+	// Line is the 1-based line a structured guard reported (Invaris 0.5+).
+	Line    *int   `json:"line" optional:"true"`
+	Message string `json:"message"`
 }
 type Check struct {
 	ID          string       `json:"id"`
@@ -252,7 +255,7 @@ func validateReport(b []byte, h Harness, root, digest string, exit *int) (Report
 			return bad()
 		}
 		for _, f := range c.Findings {
-			if f.PolicyID != g.PolicyID || f.RuleID == "" || f.Path == "" {
+			if f.PolicyID != g.PolicyID || f.RuleID == "" || f.Path == "" || f.Line != nil && *f.Line < 1 {
 				return bad()
 			}
 		}

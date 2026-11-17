@@ -1,4 +1,4 @@
-// Package invaris adapts one pinned native check profile, not guard logic.
+// Package invaris adapts one supported native check profile, not guard logic.
 package invaris
 
 import (

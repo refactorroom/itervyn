@@ -15,9 +15,10 @@ GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off go test -race ./...
 gofmt must produce no paths. Select an installed Go 1.27.4+ binary first; a
 toolchain-launcher download may need checksum access before the offline phase.
 
-Real-provider tests are separate from fake-provider contract handling. Build clean
-Invaris d770885fd33012d9ff368b25611f8b327d348b6e and Evaris
-e12566ba22fa2d63fe3ecb68ed61bf3dbd38b065 outside their modules' source trees:
+Real-provider tests are separate from fake-provider contract handling. Use clean
+tagged releases on the [supported lines](docs/integration.md#compatibility):
+the npm native binaries, `go install ...@v0.5.0` / `@v0.4.0`, or a clean
+checkout of the release tag built with `go build -trimpath ./cmd/<tool>`:
 
 ```sh
 export ITERVYN_TEST_INVARIS=/absolute/approved/invaris
