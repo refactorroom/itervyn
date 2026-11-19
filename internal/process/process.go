@@ -135,7 +135,7 @@ func Supported(id Identity, provider string) error {
 		return config.Err("UNSUPPORTED_TOOL", "unknown provider")
 	}
 	if id.Module != "github.com/akkaraponph/"+provider || id.Dirty || !slices.Contains(lines, ReleaseLine(id.Version)) {
-		return config.Err("UNSUPPORTED_TOOL", "unsupported provider build")
+		return config.Err("UNSUPPORTED_TOOL", "unsupported "+provider+" build, use a clean release on "+strings.Join(lines, " or "))
 	}
 	return nil
 }
@@ -145,7 +145,7 @@ func Supported(id Identity, provider string) error {
 // identity names the provider's module at a clean, tagged release on one of
 // these lines. Development builds, pseudo-versions, prereleases and other
 // lines fail closed: their contracts have not been checked against Itervyn.
-var SupportedReleases = map[string][]string{"invaris": {"0.5"}, "evaris": {"0.4"}}
+var SupportedReleases = map[string][]string{"invaris": {"0.5"}, "evaris": {"0.4", "0.5"}}
 
 var release = regexp.MustCompile(`^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
 

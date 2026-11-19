@@ -17,6 +17,7 @@ type readinessCheck struct {
 	Required bool   `json:"required"`
 	Code     string `json:"code"`
 	Ready    bool   `json:"ready"`
+	Version  string `json:"version,omitempty"`
 }
 type readiness struct {
 	SchemaVersion string            `json:"schemaVersion"`
@@ -27,8 +28,8 @@ type readiness struct {
 
 func doctor(ctx context.Context, c config.Resolved, jsonMode bool, stdout, stderr io.Writer) int {
 	r := readiness{SchemaVersion: verify.DoctorSchema, Ready: true, Checks: []readinessCheck{}, Warnings: []verify.Feedback{}}
-	add := func(name string, required bool, err error) {
-		row := readinessCheck{Provider: name, Required: required, Ready: err == nil}
+	add := func(name string, required bool, version string, err error) {
+		row := readinessCheck{Provider: name, Required: required, Ready: err == nil, Version: version}
 		if err != nil {
 			row.Code = config.Code(err)
 			if required {
@@ -49,7 +50,11 @@ func doctor(ctx context.Context, c config.Resolved, jsonMode bool, stdout, stder
 		if !p.enabled {
 			continue
 		}
-		_, err := process.Identify(p.executable, p.name)
+		identity, err := process.Identify(p.executable, p.name)
+		version := ""
+		if identity.Module == "github.com/akkaraponph/"+p.name && process.ReleaseLine(identity.Version) != "" {
+			version = identity.Version
+		}
 		if err == nil {
 			if p.name == "invaris" {
 				var b []byte
@@ -64,7 +69,7 @@ func doctor(ctx context.Context, c config.Resolved, jsonMode bool, stdout, stder
 				err = evaris.Prerequisites(c)
 			}
 		}
-		add(p.name, p.required, err)
+		add(p.name, p.required, version, err)
 	}
 	// Only this owned permission probe is written. Providers run only
 	// `--version` during identification; no guard or verification executes.
@@ -89,12 +94,19 @@ func doctor(ctx context.Context, c config.Resolved, jsonMode bool, stdout, stder
 			}
 		}
 	}
-	add("evidence", true, err)
+	add("evidence", true, "", err)
 	if jsonMode {
 		err = emit(stdout, r)
 	} else {
 		for _, row := range r.Checks {
-			fmt.Fprintf(stdout, "%s: ready=%t required=%t %s\n", row.Provider, row.Ready, row.Required, row.Code)
+			fmt.Fprintf(stdout, "%s: ready=%t required=%t", row.Provider, row.Ready, row.Required)
+			if row.Version != "" {
+				fmt.Fprintf(stdout, " version=%s", row.Version)
+			}
+			if row.Code != "" {
+				fmt.Fprintf(stdout, " %s", row.Code)
+			}
+			fmt.Fprintln(stdout)
 		}
 		fmt.Fprintln(stdout, "Readiness does not prove verification passes.")
 	}

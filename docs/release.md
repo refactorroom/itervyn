@@ -26,7 +26,7 @@ execution, especially on the other CPU architecture.
 
 Configuration/result/diagnostic/doctor schemas are `/v1alpha1`; unknown versions
 or fields are refused. No 0.x cross-minor compatibility or evidence-store migration
-is promised. The concrete provider pins and profile are documented in
+is promised. Supported provider releases and profiles are documented in
 [integration](integration.md). Upgrading a provider or evidence shape requires
 new positive and negative real-binary checks before broadening accepted builds.
 
@@ -34,8 +34,9 @@ Release gates:
 
 1. Public contracts and requirement acceptance tests pass; strict JSON and exits
    agree with [configuration](configuration.md).
-2. Real Invaris and Evaris tests for every supported release line pass on macOS and Linux, separately from
-   fake-provider tests; missing setup or skipped tests cannot count as evidence.
+2. Linux CI tests the latest stable GitHub releases together. For release
+   preparation, also check the supported older releases and native macOS
+   execution locally. Skipped tests do not count as evidence.
 3. Native process-group, environment, output, path and integrity tests pass and
    focused review has no unresolved high-impact execution/evidence defect.
 4. Corruption, collision, interrupted publication, canceled/partial runs and
