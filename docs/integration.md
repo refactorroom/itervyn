@@ -99,11 +99,17 @@ execution, and recorded with each run.
 
 | Itervyn | Tool | Release | `--version` | Contract read | Status |
 | --- | --- | --- | --- | --- | --- |
-| 0.1.x (this branch) | Invaris | 0.5.x | `invaris v0.5.Z` | `invaris.dev/v1alpha2` check harness, `invaris.evidence/v1alpha2` evidence; findings may carry `line` | Tested: v0.5.0 (npm `invaris-cli@0.5.0`) and the pending 0.5.1 fixes |
-| 0.1.x (this branch) | Evaris | 0.4.x | `evaris v0.4.Z` | `evaris.evaluation/v1alpha1` of an existing imported run; verification may carry `message`, its findings `line` | Tested: v0.4.0 (npm `evaris-cli@0.4.0`) and the pending 0.4.1 fixes |
+| 0.1.x | Invaris | 0.5.x | `invaris v0.5.Z` | `invaris.dev/v1alpha2` check harness, `invaris.evidence/v1alpha2` evidence | Latest tested: v0.5.1 |
+| 0.1.x | Evaris | 0.4.x or 0.5.x | `evaris v0.4.Z` or `evaris v0.5.Z` | `evaris.evaluation/v1alpha1` of an existing imported run | Latest tested: v0.5.0 |
 | 0.1.x (this branch) | either | any other release line, development build or pseudo-version | any | not checked | Refused, `UNSUPPORTED_TOOL` |
 | 0.1.0 | Invaris | v0.3.0 / `d770885` | none | `invaris.evidence/v1alpha2` without `line` | Legacy; refused by this branch |
 | 0.1.0 | Evaris | v0.2.0 / `e12566b` | `evaris v0.2.0` | `evaris.evaluation/v1alpha1` without verification `message` | Legacy; refused by this branch |
+
+Itervyn CI resolves the latest stable GitHub release of each tool on every run,
+including a daily scheduled check. It tests the resolved tags as a pair and
+fails if a new release falls outside the supported profiles. Use
+`itervyn doctor --format json` to see the locally installed versions. Update
+the provider binaries separately when you want to use a newer verified release.
 
 Itervyn reads `evaris.evaluation/v1alpha1` only. Evaris reports
 (`evaris.report/v1alpha2`) and runs (`evaris.run/v1alpha2`) stay inside the

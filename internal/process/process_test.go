@@ -163,11 +163,14 @@ func TestLimitsAndCancellation(t *testing.T) {
 }
 
 func TestSupportedReleases(t *testing.T) {
-	ok := map[string]Identity{
-		"invaris": {Module: "github.com/akkaraponph/invaris", Version: "v0.5.0"},
-		"evaris":  {Module: "github.com/akkaraponph/evaris", Version: "v0.4.0"},
+	ok := []struct{ provider, version string }{
+		{"invaris", "v0.5.0"},
+		{"evaris", "v0.4.0"},
+		{"evaris", "v0.5.0"},
 	}
-	for provider, id := range ok {
+	for _, tc := range ok {
+		provider := tc.provider
+		id := Identity{Module: "github.com/akkaraponph/" + provider, Version: tc.version}
 		if e := Supported(id, provider); e != nil {
 			t.Fatal(provider, e)
 		}
@@ -194,7 +197,7 @@ func TestSupportedReleases(t *testing.T) {
 		{"invaris", Identity{Module: "github.com/akkaraponph/evaris", Version: "v0.5.0"}},
 		{"invaris", Identity{Module: "example.com/invaris", Version: "v0.5.0"}},
 		{"evaris", Identity{Module: "github.com/akkaraponph/evaris", Version: "v0.2.0"}},
-		{"evaris", Identity{Module: "github.com/akkaraponph/evaris", Version: "v0.5.0"}},
+		{"evaris", Identity{Module: "github.com/akkaraponph/evaris", Version: "v0.6.0"}},
 		{"evaris", Identity{Module: "github.com/akkaraponph/invaris", Version: "v0.4.0"}},
 		{"other", Identity{Module: "github.com/akkaraponph/other", Version: "v0.5.0"}},
 	}
@@ -261,7 +264,7 @@ func TestVersionProbe(t *testing.T) {
 		"mismatched --version": fakeProvider(t, "invaris", "v0.5.3", "invaris v0.5.4"),
 		"dev --version":        fakeProvider(t, "invaris", "v0.5.3", "invaris dev"),
 		"other tool name":      fakeProvider(t, "invaris", "v0.5.3", "evaris v0.5.3"),
-		"unsupported line":     fakeProvider(t, "evaris", "v0.5.0", "evaris v0.5.0"),
+		"unsupported line":     fakeProvider(t, "evaris", "v0.6.0", "evaris v0.6.0"),
 	} {
 		provider := filepath.Base(bin)
 		if _, e := Identify(bin, provider); config.Code(e) != "UNSUPPORTED_TOOL" {

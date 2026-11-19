@@ -1,7 +1,7 @@
 package evaris
 
 // Wire contracts follow the Evaris release lines in process.SupportedReleases
-// (0.4.x, source v0.4.0, Apache-2.0). Grading/store algorithms remain upstream.
+// (0.4.x and 0.5.x, Apache-2.0). Grading and store algorithms remain upstream.
 import (
 	"github.com/akkaraponph/itervyn/internal/config"
 	"time"

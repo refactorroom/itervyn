@@ -10,7 +10,7 @@ Evaris runs, validates their evidence, and records a structured decision. The
 agent owns code changes and the correction loop.
 
 Requires Linux or macOS and Go 1.27.4 to build. Runtime integrations support the
-**Invaris 0.5.x** and **Evaris 0.4.x** release lines (see
+**Invaris 0.5.x** and **Evaris 0.4.x–0.5.x** release lines (see
 [compatibility](docs/integration.md#compatibility)). Other builds fail closed. Only Invaris's
 native v1alpha2 structured command `check` profile is supported. Evaris preparation
 and import happen separately; command graders and embedded Invaris verification
@@ -24,16 +24,17 @@ go build -trimpath -o /tmp/itervyn ./cmd/itervyn
 ```
 
 `init` never overwrites a file. It creates Itervyn configuration, not guard rules.
-`doctor` reports missing tools/harnesses and may create a private permission probe;
+`doctor` reports the installed provider versions and missing prerequisites. It may create a private permission probe;
 it does not run verification beyond each provider's `--version`. Install the
-upstream binaries separately, either from Go:
+the latest stable upstream binaries separately with Go:
 
 ```sh
-go install github.com/akkaraponph/invaris/cmd/invaris@v0.5.0
-go install github.com/akkaraponph/evaris/cmd/evaris@v0.4.0
+go install github.com/akkaraponph/invaris/cmd/invaris@latest
+go install github.com/akkaraponph/evaris/cmd/evaris@latest
 ```
 
-or from npm (`npm install invaris-cli@0.5 evaris-cli@0.4`). The npm `bin`
+or use the native binaries from the GitHub releases. If you install through npm,
+check its available versions separately. The npm `bin`
 entries are Node.js launchers behind symbolic links, which Itervyn refuses; set
 `executable` to the native binary inside the package instead:
 `node_modules/invaris-cli/platforms/<os>_<arch>/invaris` and
@@ -43,6 +44,9 @@ Put the Go installation directory on PATH, or use absolute executable paths in
 configuration. These installation commands need network access unless cached.
 Verification itself needs no network service; trusted external tools can still
 access the network and filesystem.
+
+CI checks both latest stable GitHub releases every day. Itervyn uses the local
+binaries you configure and refuses release lines it does not yet support.
 
 Try the deterministic Go fixture in a disposable directory, from this checkout:
 

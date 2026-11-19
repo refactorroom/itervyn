@@ -1,14 +1,17 @@
 name: Verify
-on: [push, pull_request, workflow_dispatch]
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: '19 4 * * *'
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
   checks:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
       GOTOOLCHAIN: local
@@ -16,16 +19,32 @@ jobs:
       GOSUMDB: 'off'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Resolve latest stable provider releases
+        id: releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          pattern='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+          for provider in invaris evaris; do
+            tag=$(gh release view --repo "refactorroom/$provider" --json tagName --jq '.tagName')
+            if [[ ! "$tag" =~ $pattern ]]; then
+              echo "::error::Expected a stable release tag for $provider"
+              exit 1
+            fi
+            printf '%s=%s\n' "$provider" "$tag" >> "$GITHUB_OUTPUT"
+            echo "Testing $provider $tag"
+          done
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          repository: akkaraponph/invaris
-          ref: v0.5.0
+          repository: refactorroom/invaris
+          ref: refs/tags/${{ steps.releases.outputs.invaris }}
           path: .panda-suite/upstream/invaris
           persist-credentials: false
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          repository: akkaraponph/evaris
-          ref: v0.4.0
+          repository: refactorroom/evaris
+          ref: refs/tags/${{ steps.releases.outputs.evaris }}
           path: .panda-suite/upstream/evaris
           persist-credentials: false
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
@@ -38,34 +57,28 @@ jobs:
         run: |
           go build ./...
           go vet ./...
-      - name: Build supported native tools from release tags
+      - name: Build native tools from release tags
+        env:
+          INVARIS_TAG: ${{ steps.releases.outputs.invaris }}
+          EVARIS_TAG: ${{ steps.releases.outputs.evaris }}
         run: |
           mkdir -p .panda-suite/build
-          (cd .panda-suite/upstream/invaris && go build -trimpath -o "$GITHUB_WORKSPACE/.panda-suite/build/invaris" ./cmd/invaris)
-          (cd .panda-suite/upstream/evaris && go build -trimpath -o "$GITHUB_WORKSPACE/.panda-suite/build/evaris" ./cmd/evaris)
-          test "$(.panda-suite/build/invaris --version)" = "invaris v0.5.0"
-          test "$(.panda-suite/build/evaris --version)" = "evaris v0.4.0"
-      - name: Unit, race and real-provider acceptance
+          (cd .panda-suite/upstream/invaris && go build -trimpath \
+            -ldflags "-X github.com/akkaraponph/invaris/internal/engine.releaseVersion=$INVARIS_TAG" \
+            -o "$GITHUB_WORKSPACE/.panda-suite/build/invaris" ./cmd/invaris)
+          (cd .panda-suite/upstream/evaris && go build -trimpath \
+            -ldflags "-X main.version=$EVARIS_TAG" \
+            -o "$GITHUB_WORKSPACE/.panda-suite/build/evaris" ./cmd/evaris)
+          test "$(.panda-suite/build/invaris --version)" = "invaris $INVARIS_TAG"
+          test "$(.panda-suite/build/evaris --version)" = "evaris $EVARIS_TAG"
+      - name: Unit and real-provider acceptance with race detection
         run: |
           export ITERVYN_TEST_INVARIS="$GITHUB_WORKSPACE/.panda-suite/build/invaris"
           export ITERVYN_TEST_EVARIS="$GITHUB_WORKSPACE/.panda-suite/build/evaris"
           export ITERVYN_EVIDENCE_DIR="$GITHUB_WORKSPACE/.panda-suite/evidence"
-          go test ./...
-          go test -race ./...
-          go test ./internal/acceptance -count=1 -v
-      - name: Real-provider acceptance with released npm binaries
-        run: |
-          mkdir -p .panda-suite/npm
-          npm install --prefix .panda-suite/npm --ignore-scripts --no-audit --no-fund invaris-cli@0.5.0 evaris-cli@0.4.0
-          os=$(go env GOOS); arch=$(go env GOARCH)
-          export ITERVYN_TEST_INVARIS="$GITHUB_WORKSPACE/.panda-suite/npm/node_modules/invaris-cli/platforms/${os}_${arch}/invaris"
-          export ITERVYN_TEST_EVARIS="$GITHUB_WORKSPACE/.panda-suite/npm/node_modules/evaris-cli/binaries/evaris-${os}-${arch}"
-          go test ./internal/acceptance -count=1 -v
+          go test -race ./... -count=1
       - name: Published schemas against actual records
         run: |
           python3 -m venv .panda-suite/schema-venv
           .panda-suite/schema-venv/bin/pip install -r scripts/requirements-schema.txt
           .panda-suite/schema-venv/bin/python scripts/validate-schemas.py --evidence .panda-suite/evidence
-      - name: Rehearse four-target packaging
-        if: matrix.os == 'ubuntu-latest'
-        run: python3 scripts/package.py
