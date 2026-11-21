@@ -71,7 +71,12 @@ func native(t *testing.T, exe string, args ...string) map[string]any {
 }
 func run(t *testing.T, root string, c config.Config) verify.Result {
 	t.Helper()
-	path := filepath.Join(root, "itervyn.json")
+	return runWithPolicy(t, root, c, "")
+}
+
+func runWithPolicy(t *testing.T, policy string, c config.Config, revision string) verify.Result {
+	t.Helper()
+	path := filepath.Join(policy, "itervyn.json")
 	jsonFile(t, path, c)
 	loaded, e := config.Load(path)
 	if e != nil {
@@ -82,7 +87,7 @@ func run(t *testing.T, root string, c config.Config) verify.Result {
 		t.Fatal(e)
 	}
 	s := verify.Service{Providers: []verify.Provider{invarisprovider.Adapter{}, evarisprovider.Adapter{}}, Store: evidence.Store{}}
-	r, e := s.Verify(context.Background(), verify.Request{Config: resolved})
+	r, e := s.Verify(context.Background(), verify.Request{Config: resolved, ExpectedRevision: revision})
 	if e != nil {
 		t.Fatal(e)
 	}

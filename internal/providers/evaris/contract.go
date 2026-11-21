@@ -139,3 +139,19 @@ func parse(b []byte, run string, exit *int) (Evaluation, error) {
 	}
 	return e, nil
 }
+
+// Evaris can assess PASS while reporting unavailable optional criteria or
+// optional verification. Those reasons and import limitations stay advisory.
+// Missing required checks, pending review, and cancellation are blocking.
+func (e Evaluation) incompleteEvidence() bool {
+	if e.Review != "NOT_REQUIRED" || e.Execution == "CANCELED" || e.Assessment == "PASS" && e.AgentOutcome != "SATISFIED" {
+		return true
+	}
+	for _, g := range e.Graders {
+		if g.Required && g.Status != "PASS" && (g.Status != "FAIL" || e.Assessment == "PASS") {
+			return true
+		}
+	}
+	return e.Verification != nil && e.Verification.Required &&
+		e.Verification.Status != "ACCEPT" && (e.Verification.Status != "REJECT" || e.Assessment == "PASS")
+}

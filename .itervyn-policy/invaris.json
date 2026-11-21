@@ -1,0 +1,19 @@
+{
+  "version": "invaris.dev/v1alpha2",
+  "name": "itervyn-architecture",
+  "trustMode": "trusted-local",
+  "networkPolicy": "unrestricted",
+  "policies": [{"id": "verify-no-provider-imports", "allowEmpty": false}],
+  "gate": {
+    "requiredGuards": ["verify-imports"],
+    "requiredProofs": [],
+    "precedence": "failure-first",
+    "allowWeakEvidence": false
+  },
+  "guards": [{
+    "id": "verify-imports",
+    "policyId": "verify-no-provider-imports",
+    "program": "/trusted/bin/verify-imports",
+    "minInspected": 1
+  }]
+}

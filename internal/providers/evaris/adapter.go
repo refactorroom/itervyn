@@ -34,6 +34,10 @@ func (a Adapter) Verify(ctx context.Context, q verify.Request) (out verify.Obser
 	if ctx.Err() != nil {
 		return fail(process.ContextReason(ctx))
 	}
+	if q.Strict() && (!q.SeparatedPolicy() || !verify.ExternalExecutable(c.ProjectRoot, v.Executable) ||
+		config.Within(c.ProjectRoot, c.EvarisStore) || config.Within(c.EvarisStore, c.ProjectRoot)) {
+		return fail("UNTRUSTED_POLICY")
+	}
 	if err := Prerequisites(c); err != nil {
 		return fail(config.Code(err))
 	}
@@ -50,7 +54,11 @@ func (a Adapter) Verify(ctx context.Context, q verify.Request) (out verify.Obser
 		return fail("IO_ERROR")
 	}
 	defer os.RemoveAll(tmp)
-	s := process.Spec{Executable: id.Path, ExpectedSHA256: id.SHA256, Args: []string{"evaluate", "--store", c.EvarisStore, "--run", v.RunID}, Dir: c.ProjectRoot, Env: process.Environment(c.Execution.EnvironmentAllowlist, tmp), Timeout: time.Duration(c.Execution.ProviderTimeoutSeconds) * time.Second, StdoutLimit: c.Execution.StdoutLimitBytes, StderrLimit: c.Execution.StderrLimitBytes}
+	env := process.Environment(c.Execution.EnvironmentAllowlist, tmp)
+	if q.Strict() {
+		env = []string{"PATH=/usr/bin:/bin", "TMPDIR=" + tmp}
+	}
+	s := process.Spec{Executable: id.Path, ExpectedSHA256: id.SHA256, Args: []string{"evaluate", "--store", c.EvarisStore, "--run", v.RunID}, Dir: c.ProjectRoot, Env: env, Timeout: time.Duration(c.Execution.ProviderTimeoutSeconds) * time.Second, StdoutLimit: c.Execution.StdoutLimitBytes, StderrLimit: c.Execution.StderrLimitBytes}
 	runner := a.Runner
 	if runner == nil {
 		runner = process.Local{}
@@ -81,6 +89,7 @@ func (a Adapter) Verify(ctx context.Context, q verify.Request) (out verify.Obser
 	}
 	out.Artifacts = append(out.Artifacts, verify.NativeArtifact{Path: "providers/evaris-evaluation.json", Data: b})
 	out.Result.Status = verify.Status(e.Assessment)
+	out.Incomplete = e.incompleteEvidence()
 	out.Result.NativeDecision = verify.Ptr(e.Assessment)
 	out.Result.NativeSchemaVersion = verify.Ptr(e.SchemaVersion)
 	out.Result.Scope.PreparationID = verify.Ptr(e.PreparationID)

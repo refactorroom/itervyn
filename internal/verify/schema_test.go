@@ -15,10 +15,10 @@ import (
 // constraints have independent config, policy, process and integrity tests.
 func TestPublishedContractFields(t *testing.T) {
 	for _, tc := range []struct {
-		name  string
-		value any
-	}{{"config", config.Config{}}, {"result", verify.Result{}}, {"diagnostic", verify.Diagnostic{}}} {
-		b, e := os.ReadFile("../../schemas/" + tc.name + "-v1alpha1.schema.json")
+		name, version string
+		value         any
+	}{{"config", "v1alpha2", config.Config{}}, {"result", "v1alpha2", verify.Result{}}, {"diagnostic", "v1alpha1", verify.Diagnostic{}}} {
+		b, e := os.ReadFile("../../schemas/" + tc.name + "-" + tc.version + ".schema.json")
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -71,6 +71,13 @@ func compareShape(t *testing.T, typ reflect.Type, node, root map[string]any, pat
 			child, ok := props[key].(map[string]any)
 			if !ok {
 				t.Fatal(path, "missing schema field", key)
+			}
+			if key == "revisionGate" && path == "result" {
+				if !required[key] {
+					t.Fatal(path, "revisionGate is required in v1alpha2")
+				}
+				compareShape(t, f.Type.Elem(), child, root, path+"."+key)
+				continue
 			}
 			if required[key] != (f.Tag.Get("optional") != "true") {
 				t.Fatal(path, "required mismatch", key)

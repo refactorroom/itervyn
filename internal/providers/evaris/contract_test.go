@@ -108,3 +108,30 @@ func TestVerificationAdditions(t *testing.T) {
 		}
 	}
 }
+
+func TestRevisionDiagnosticPolicy(t *testing.T) {
+	e := Evaluation{
+		Execution:    "INCOMPLETE",
+		Review:       "NOT_REQUIRED",
+		Limitations:  []string{"synthetic import"},
+		Graders:      []Grader{{Required: true, Status: "PASS"}, {Status: "UNAVAILABLE", Reason: "COMMAND_NOT_AUTHORIZED"}},
+		Verification: &Verification{Status: "UNAVAILABLE", Reason: "COMMAND_NOT_AUTHORIZED"},
+	}
+	if e.incompleteEvidence() {
+		t.Fatal("an optional Evaris diagnostic blocked the gate")
+	}
+	e.Verification.Required = true
+	if !e.incompleteEvidence() {
+		t.Fatal("unavailable required verification accepted")
+	}
+	e.Verification.Required = false
+	e.Graders[1].Required = true
+	if !e.incompleteEvidence() {
+		t.Fatal("unavailable required criterion accepted")
+	}
+	e.Graders[1].Required = false
+	e.Execution = "CANCELED"
+	if !e.incompleteEvidence() {
+		t.Fatal("canceled evidence accepted")
+	}
+}

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"github.com/akkaraponph/itervyn/internal/config"
@@ -10,6 +11,7 @@ import (
 	"github.com/akkaraponph/itervyn/internal/verify"
 	"io"
 	"os"
+	"path/filepath"
 )
 
 type readinessCheck struct {
@@ -58,12 +60,18 @@ func doctor(ctx context.Context, c config.Resolved, jsonMode bool, stdout, stder
 		if err == nil {
 			if p.name == "invaris" {
 				var b []byte
-				b, err = config.Read(c.ProjectRoot, c.Providers.Invaris.Harness, config.MaxConfig)
+				b, err = c.ReadHarness()
 				if os.IsNotExist(err) {
 					err = config.Err("HARNESS_MISSING", "root harness unavailable")
 				}
 				if err == nil {
 					_, err = invaris.ParseHarness(b)
+				}
+				if err == nil && c.SchemaVersion == config.TrustedSchema {
+					staged, readErr := c.ReadRuntimeHarness()
+					if readErr != nil || !bytes.Equal(b, staged) {
+						err = config.Err("EVIDENCE_MISMATCH", "staged harness differs from trusted policy")
+					}
 				}
 			} else {
 				err = evaris.Prerequisites(c)
@@ -73,14 +81,16 @@ func doctor(ctx context.Context, c config.Resolved, jsonMode bool, stdout, stder
 	}
 	// Only this owned permission probe is written. Providers run only
 	// `--version` during identification; no guard or verification executes.
-	err := config.CheckDescendants(c.ProjectRoot, c.Evidence.Directory, true)
+	err := config.CheckAbsolute(c.EvidenceDir, true)
 	if err == nil {
-		anchor, e := os.OpenRoot(c.ProjectRoot)
-		if e != nil {
-			err = e
+		anchor := string(filepath.Separator)
+		root, openErr := os.OpenRoot(anchor)
+		if openErr != nil {
+			err = openErr
 		} else {
-			err = anchor.MkdirAll(c.Evidence.Directory, 0700)
-			_ = anchor.Close()
+			defer root.Close()
+			rel, _ := filepath.Rel(anchor, c.EvidenceDir)
+			err = root.MkdirAll(rel, 0700)
 		}
 	}
 	if err == nil {

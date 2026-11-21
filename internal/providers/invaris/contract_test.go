@@ -155,3 +155,87 @@ func TestFindingLine(t *testing.T) {
 		}
 	}
 }
+
+func TestRevisionDiagnosticPolicy(t *testing.T) {
+	_, r := report(t, "ACCEPT")
+	r.Compatibility.Warnings = []string{"informational compatibility message"}
+	r.Observations[0].Truncated = true
+	if r.incompleteEvidence() {
+		t.Fatal("informational metadata blocked evidence")
+	}
+	for name, add := range map[string]func(*Report){
+		"report":      func(r *Report) { r.Diagnostics = []Diagnostic{{Code: "EVIDENCE_INCOMPLETE"}} },
+		"check":       func(r *Report) { r.Checks[0].Diagnostics = []Diagnostic{{Code: "REFUSED"}} },
+		"observation": func(r *Report) { r.Observations[0].Diagnostics = []Diagnostic{{Code: "FUTURE_DIAGNOSTIC"}} },
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, r := report(t, "ACCEPT")
+			add(&r)
+			if !r.incompleteEvidence() {
+				t.Fatal("unreliable required evidence accepted")
+			}
+		})
+	}
+	_, rejected := report(t, "REJECT")
+	rejected.Checks[0].Diagnostics = []Diagnostic{{Code: "COMMAND_FAILED"}}
+	rejected.Observations[0].Diagnostics = rejected.Checks[0].Diagnostics
+	if rejected.incompleteEvidence() {
+		t.Fatal("expected command exit 1 was classified as unreliable")
+	}
+}
+
+func TestTrustedHarnessRejectsChangeAndRevert(t *testing.T) {
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	stage := filepath.Join(root, config.RuntimeHarness)
+	if err = os.Mkdir(filepath.Dir(stage), 0700); err != nil {
+		t.Fatal(err)
+	}
+	save := func(path, contents string) {
+		t.Helper()
+		if err := os.WriteFile(path, []byte(contents), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	original := filepath.Join(policy, "invaris.json")
+	save(original, harness)
+	save(stage, harness)
+	c := config.Resolved{
+		Config: config.Starter(), ProjectRoot: root, ConfigPath: filepath.Join(policy, "itervyn.json"),
+		HarnessPath: original, RuntimeHarnessPath: stage,
+	}
+	c.SchemaVersion = config.TrustedSchema
+	_, r := report(t, "ACCEPT")
+	r.Target = root
+	id := process.Identity{Path: "/trusted/invaris", SHA256: config.Hash([]byte("binary"))}
+	a := Adapter{
+		Identify: func(string, string) (process.Identity, error) { return id, nil },
+		Runner: runFunc(func(_ context.Context, spec process.Spec) process.Outcome {
+			if spec.Args[3] != stage {
+				t.Fatal("Invaris was not pointed at the candidate-relative mount")
+			}
+			save(stage, harness+" ")
+			loaded, err := os.ReadFile(stage)
+			if err != nil {
+				t.Fatal(err)
+			}
+			r.ConfigDigest = verify.Ptr(config.Hash(loaded))
+			save(stage, harness)
+			b, err := json.Marshal(r)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return process.Outcome{Stdout: b, ExitCode: verify.Ptr(0), ExecutableSHA256: id.SHA256}
+		}),
+	}
+	out := a.Verify(context.Background(), verify.Request{Config: c})
+	if out.Result.Status != verify.Error || out.Result.Reason == nil || *out.Result.Reason != "EVIDENCE_MISMATCH" {
+		t.Fatal("runtime digest from the changed bytes passed after the harness was restored", out)
+	}
+}

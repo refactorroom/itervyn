@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -36,9 +37,25 @@ func (s Service) Verify(parent context.Context, q Request) (r Result, err error)
 	}
 	ctx, cancel := context.WithTimeout(parent, time.Duration(q.Config.Execution.TimeoutSeconds)*time.Second)
 	defer cancel()
-	r.GitRevision, r.GitDirty = gitMetadata(ctx, q.Config.ProjectRoot)
-	if r.GitRevision == nil {
-		r.Warnings = append(r.Warnings, Feedback{Code: "PREREQUISITE_MISSING", Message: "Git provenance unavailable; it is not a content snapshot."})
+	if q.Strict() {
+		if q.ExpectedRevision != "" && !config.RevisionPattern.MatchString(q.ExpectedRevision) {
+			return opError("INVALID_ARGUMENT", config.Err("INVALID_ARGUMENT", "expected revision must be a full lowercase commit ID"))
+		}
+		r.SchemaVersion = GatedResultSchema
+		gate := &RevisionGate{SeparatedPolicy: q.SeparatedPolicy(), Before: strictGit(ctx, q), Incomplete: []string{}}
+		if q.ExpectedRevision != "" {
+			gate.ExpectedRevision = Ptr(q.ExpectedRevision)
+		}
+		r.RevisionGate = gate
+		r.GitRevision, r.GitDirty = gate.Before.Revision, gate.Before.Dirty
+		if !filepath.IsAbs(q.Config.EvidenceDir) || config.Within(q.Config.ProjectRoot, q.Config.EvidenceDir) {
+			return opError("UNTRUSTED_POLICY", config.Err("UNTRUSTED_POLICY", "revision gate evidence must be outside the candidate root"))
+		}
+	} else {
+		r.GitRevision, r.GitDirty = gitMetadata(ctx, q.Config.ProjectRoot)
+		if r.GitRevision == nil {
+			r.Warnings = append(r.Warnings, Feedback{Code: "PREREQUISITE_MISSING", Message: "Git provenance is unavailable."})
+		}
 	}
 	var h RunHandle
 	for attempt := 0; attempt < 3; attempt++ {
@@ -100,7 +117,15 @@ func (s Service) Verify(parent context.Context, q Request) (r Result, err error)
 		if out.Result.Name != p.name {
 			return opError("INTERNAL_ERROR", config.Err("INTERNAL_ERROR", "provider identity mismatch"))
 		}
-		out.Result.Required = p.required
+		out.Result.Required = p.required || q.Strict() && p.name == "invaris"
+		if g := r.RevisionGate; g != nil {
+			if p.name == "invaris" {
+				g.Invaris = out.Git
+			}
+			if out.Incomplete && (p.required || p.name == "invaris") {
+				g.Incomplete = append(g.Incomplete, p.name)
+			}
+		}
 		out.Result.Evidence = []ArtifactRef{}
 		if out.Result.NativeReasons == nil {
 			out.Result.NativeReasons = []string{}
@@ -135,7 +160,7 @@ func (s Service) Verify(parent context.Context, q Request) (r Result, err error)
 			if len(out.Result.Evidence) > 0 {
 				f.EvidencePath = Ptr(out.Result.Evidence[0].Path)
 			}
-			if p.required && out.Result.Status != Pass {
+			if out.Result.Required && out.Result.Status != Pass {
 				r.Feedback = append(r.Feedback, f)
 			} else {
 				r.Warnings = append(r.Warnings, f)
@@ -143,6 +168,15 @@ func (s Service) Verify(parent context.Context, q Request) (r Result, err error)
 		}
 	}
 	r.Status, r.NextAction = Aggregate(r.Providers)
+	if g := r.RevisionGate; g != nil {
+		g.After = strictGit(ctx, q)
+		if blockers := g.blockers(r.Providers); len(blockers) > 0 {
+			r.Feedback = append(r.Feedback, blockers...)
+			if r.Status == Pass {
+				r.Status, r.NextAction = Inconclusive, Investigate
+			}
+		}
+	}
 	if ctx.Err() != nil && r.Status == Pass {
 		r.Status, r.NextAction = Error, Stop
 		r.Feedback = append(r.Feedback, Feedback{Code: process.ContextReason(ctx), Message: "Verification was interrupted before publication."})

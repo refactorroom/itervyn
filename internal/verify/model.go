@@ -4,10 +4,11 @@ package verify
 import "time"
 
 const (
-	Version          = "v0.1.0"
-	ResultSchema     = "itervyn.result/v1alpha1"
-	DiagnosticSchema = "itervyn.diagnostic/v1alpha1"
-	DoctorSchema     = "itervyn.doctor/v1alpha1"
+	Version           = "v0.1.0"
+	ResultSchema      = "itervyn.result/v1alpha1"
+	GatedResultSchema = "itervyn.result/v1alpha2"
+	DiagnosticSchema  = "itervyn.diagnostic/v1alpha1"
+	DoctorSchema      = "itervyn.doctor/v1alpha1"
 )
 
 type Status string
@@ -82,6 +83,7 @@ type Result struct {
 	ProjectRoot       *string          `json:"projectRoot"`
 	GitRevision       *string          `json:"gitRevision"`
 	GitDirty          *bool            `json:"gitDirty"`
+	RevisionGate      *RevisionGate    `json:"revisionGate,omitempty" optional:"true"`
 	Artifacts         []ArtifactRef    `json:"artifacts"`
 	EvidencePersisted bool             `json:"evidencePersisted"`
 }

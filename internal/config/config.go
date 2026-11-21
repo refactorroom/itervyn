@@ -13,8 +13,14 @@ import (
 )
 
 const Schema = "itervyn.config/v1alpha1"
+const TrustedSchema = "itervyn.config/v1alpha2"
+
+// RuntimeHarness is staged by the trusted launcher. Invaris 0.5 derives
+// its target from the harness directory (or the parent of .invaris).
+const RuntimeHarness = ".invaris/itervyn-harness.json"
 const MaxConfig = 1 << 20
 
+var RevisionPattern = regexp.MustCompile(`^([0-9a-f]{40}|[0-9a-f]{64})$`)
 var IDPattern = regexp.MustCompile(`^[0-9a-f]{32}$`)
 var DigestPattern = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 var EnvPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
@@ -35,7 +41,8 @@ func Code(err error) string {
 func Hash(b []byte) string { return fmt.Sprintf("sha256:%x", sha256.Sum256(b)) }
 
 type Project struct {
-	Root string `json:"root" optional:"true"`
+	Root             string `json:"root" optional:"true"`
+	RequireCleanTree bool   `json:"requireCleanTree,omitempty" optional:"true"`
 }
 type Execution struct {
 	TimeoutSeconds         int      `json:"timeoutSeconds" optional:"true"`
@@ -75,12 +82,13 @@ type Config struct {
 type Resolved struct {
 	Config
 	ConfigPath, ProjectRoot, HarnessPath, EvidenceDir, EvarisStore string
+	RuntimeHarnessPath                                             string
 	ConfigBytes                                                    []byte
 	ConfigSHA256                                                   string
 }
 
 func Defaults() Config {
-	return Config{SchemaVersion: Schema, Project: Project{"."}, Execution: Execution{300, 120, 4194304, 65536, []string{}}, Providers: Providers{Invaris: Invaris{Executable: "invaris", Action: "check", Harness: "invaris.json"}, Evaris: Evaris{Executable: "evaris"}}, Evidence: Evidence{".itervyn/runs"}}
+	return Config{SchemaVersion: Schema, Project: Project{Root: "."}, Execution: Execution{300, 120, 4194304, 65536, []string{}}, Providers: Providers{Invaris: Invaris{Executable: "invaris", Action: "check", Harness: "invaris.json"}, Evaris: Evaris{Executable: "evaris"}}, Evidence: Evidence{".itervyn/runs"}}
 }
 func Starter() Config {
 	c := Defaults()
@@ -98,6 +106,7 @@ func Load(path string) (Config, error) {
 		return c, Err("INVALID_CONFIG", "configuration must match the strict schema")
 	}
 	var raw struct {
+		Project   map[string]json.RawMessage `json:"project"`
 		Providers struct {
 			Evaris map[string]any `json:"evaris"`
 		} `json:"providers"`
@@ -110,8 +119,8 @@ func Load(path string) (Config, error) {
 			}
 		}
 	}
-	if c.SchemaVersion != Schema {
-		return c, Err("UNSUPPORTED_SCHEMA", "configuration version")
+	if _, present := raw.Project["requireCleanTree"]; present && c.SchemaVersion == Schema {
+		return c, Err("INVALID_CONFIG", "requireCleanTree needs config v1alpha2")
 	}
 	if err = validate(c); err != nil {
 		return c, err
@@ -143,8 +152,17 @@ func validate(c Config) error {
 	if i.Action != "check" {
 		return Err("UNSUPPORTED_ACTION", "only Invaris check is supported")
 	}
-	if !SafeRelative(i.Harness) || filepath.Base(i.Harness) != i.Harness {
-		return bad("harness must be a project-root basename")
+	switch c.SchemaVersion {
+	case Schema:
+		if !SafeRelative(i.Harness) || filepath.Base(i.Harness) != i.Harness || c.Project.RequireCleanTree {
+			return bad("v1alpha1 requires a project-root harness basename")
+		}
+	case TrustedSchema:
+		if !SafeRelative(i.Harness) {
+			return bad("v1alpha2 requires a config-relative harness")
+		}
+	default:
+		return Err("UNSUPPORTED_SCHEMA", "configuration version")
 	}
 	if v.Enabled {
 		if !filepath.IsAbs(v.Store) || !SafeLexical(v.Store) || !IDPattern.MatchString(v.RunID) {
@@ -153,7 +171,7 @@ func validate(c Config) error {
 	} else if v.Store != "" || v.RunID != "" {
 		return bad("disabled Evaris cannot have run context")
 	}
-	if c.Project.Root == "" || !SafeLexical(c.Project.Root) || !SafeRelative(c.Evidence.Directory) {
+	if c.Project.Root == "" || !SafeLexical(c.Project.Root) || !(SafeRelative(c.Evidence.Directory) || c.SchemaVersion == TrustedSchema && filepath.IsAbs(c.Evidence.Directory) && SafeLexical(c.Evidence.Directory)) {
 		return Err("PATH_UNSAFE", "invalid root or evidence path")
 	}
 	return nil
@@ -163,13 +181,15 @@ func Resolve(c Config, configPath string) (Resolved, error) {
 	if err := validate(c); err != nil {
 		return r, err
 	}
-	if c.SchemaVersion != Schema {
-		return r, Err("UNSUPPORTED_SCHEMA", "configuration version")
-	}
 	abs, err := filepath.Abs(configPath)
 	if err != nil {
 		return r, err
 	}
+	anchor, err := filepath.EvalSymlinks(filepath.Dir(abs))
+	if err != nil {
+		return r, Err("PATH_UNSAFE", "configuration directory unavailable")
+	}
+	abs = filepath.Join(anchor, filepath.Base(abs))
 	r.ConfigPath = abs
 	r.ConfigBytes, err = ReadAbsolute(abs, MaxConfig)
 	if err != nil {
@@ -197,14 +217,23 @@ func Resolve(c Config, configPath string) (Resolved, error) {
 		return r, Err("PATH_UNSAFE", "project root must be directory")
 	}
 	r.HarnessPath = filepath.Join(r.ProjectRoot, c.Providers.Invaris.Harness)
-	r.EvidenceDir = filepath.Join(r.ProjectRoot, c.Evidence.Directory)
-	if err = CheckDescendants(r.ProjectRoot, c.Evidence.Directory, true); err != nil {
+	r.RuntimeHarnessPath = r.HarnessPath
+	if c.SchemaVersion == TrustedSchema {
+		r.HarnessPath = filepath.Join(anchor, c.Providers.Invaris.Harness)
+		r.RuntimeHarnessPath = filepath.Join(r.ProjectRoot, RuntimeHarness)
+	}
+	r.EvidenceDir = c.Evidence.Directory
+	if !filepath.IsAbs(r.EvidenceDir) {
+		r.EvidenceDir = filepath.Join(r.ProjectRoot, r.EvidenceDir)
+	}
+	r.EvidenceDir = filepath.Clean(r.EvidenceDir)
+	if err = CheckAbsolute(r.EvidenceDir, true); err != nil {
 		return r, err
 	}
 	if st, e := os.Stat(r.EvidenceDir); e == nil && !st.IsDir() {
 		return r, Err("PATH_UNSAFE", "evidence destination must be directory")
 	}
-	if r.EvidenceDir == r.HarnessPath || Within(r.HarnessPath, r.EvidenceDir) {
+	if Within(r.HarnessPath, r.EvidenceDir) || Within(r.EvidenceDir, r.HarnessPath) || Within(r.EvidenceDir, r.RuntimeHarnessPath) {
 		return r, Err("PATH_UNSAFE", "evidence overlaps harness")
 	}
 	if c.Providers.Evaris.Enabled {
@@ -220,3 +249,20 @@ func Resolve(c Config, configPath string) (Resolved, error) {
 	return r, nil
 }
 func equalConfig(a, b Config) bool { return reflect.DeepEqual(a, b) }
+
+// ReadHarness keeps the path anchored while rejecting linked descendants.
+func (r Resolved) ReadHarness() ([]byte, error) {
+	if r.SchemaVersion == TrustedSchema {
+		return Read(filepath.Dir(r.ConfigPath), r.Providers.Invaris.Harness, MaxConfig)
+	}
+	return Read(r.ProjectRoot, r.Providers.Invaris.Harness, MaxConfig)
+}
+
+// ReadRuntimeHarness reads the exact candidate-relative location understood by
+// Invaris. The caller's launcher must keep that location outside write reach.
+func (r Resolved) ReadRuntimeHarness() ([]byte, error) {
+	if r.SchemaVersion == TrustedSchema {
+		return Read(r.ProjectRoot, RuntimeHarness, MaxConfig)
+	}
+	return r.ReadHarness()
+}

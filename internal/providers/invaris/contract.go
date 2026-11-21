@@ -210,7 +210,6 @@ type Report struct {
 }
 
 var hex = regexp.MustCompile(`^[0-9a-f]{64}$`)
-var git = regexp.MustCompile(`^[0-9a-f]{40,64}$`)
 
 func validateReport(b []byte, h Harness, root, digest string, exit *int) (Report, error) {
 	var r Report
@@ -224,10 +223,13 @@ func validateReport(b []byte, h Harness, root, digest string, exit *int) (Report
 	if r.SchemaVersion != EvidenceSchema {
 		return r, config.Err("UNSUPPORTED_SCHEMA", "Invaris evidence version")
 	}
-	if !config.IDPattern.MatchString(r.RunID) || r.Action != "check" || r.Target != root || r.Harness != h.Name || r.ConfigDigest == nil || *r.ConfigDigest != digest || r.Compatibility.Status != "native" || r.Compatibility.InputVersion != HarnessSchema || !reflect.DeepEqual(r.Policies, h.Policies) || !reflect.DeepEqual(r.Gate, h.Gate) || len(r.Steps)+len(r.Proofs)+len(r.Artifacts) != 0 || len(r.Checks) != len(h.Guards) || len(r.Lifecycle) != len(h.Guards) || r.StartedAt.IsZero() || r.FinishedAt.Before(r.StartedAt) || r.DurationMs < 0 || r.Environment.OS == "" || r.Environment.Arch == "" {
+	if r.ConfigDigest == nil || *r.ConfigDigest != digest {
+		return r, config.Err("EVIDENCE_MISMATCH", "Invaris loaded different harness bytes")
+	}
+	if !config.IDPattern.MatchString(r.RunID) || r.Action != "check" || r.Target != root || r.Harness != h.Name || r.Compatibility.Status != "native" || r.Compatibility.InputVersion != HarnessSchema || !reflect.DeepEqual(r.Policies, h.Policies) || !reflect.DeepEqual(r.Gate, h.Gate) || len(r.Steps)+len(r.Proofs)+len(r.Artifacts) != 0 || len(r.Checks) != len(h.Guards) || len(r.Lifecycle) != len(h.Guards) || r.StartedAt.IsZero() || r.FinishedAt.Before(r.StartedAt) || r.DurationMs < 0 || r.Environment.OS == "" || r.Environment.Arch == "" {
 		return bad()
 	}
-	if r.GitRevision != nil && !git.MatchString(*r.GitRevision) || r.TargetCount != nil && *r.TargetCount < 0 {
+	if r.GitRevision != nil && !config.RevisionPattern.MatchString(*r.GitRevision) || r.TargetCount != nil && *r.TargetCount < 0 {
 		return bad()
 	}
 	failed, missing := false, false
@@ -311,4 +313,36 @@ func validateReport(b []byte, h Harness, root, digest string, exit *int) (Report
 		return r, config.Err("EXIT_MISMATCH", "Invaris exit/report mismatch")
 	}
 	return r, nil
+}
+
+// Invaris 0.5 has no diagnostic severity. For the supported command-check
+// profile, diagnostics block PASS. A structured rejection may carry
+// COMMAND_FAILED from the expected exit 1. Compatibility warnings and
+// bounded excerpts are separate from evidence completeness.
+func (r Report) incompleteEvidence() bool {
+	if len(r.Diagnostics) != 0 {
+		return true
+	}
+	failed := map[string]bool{}
+	for _, c := range r.Checks {
+		failed[c.ID] = c.Status == "FAIL"
+		if blockingDiagnostics(c.Diagnostics, failed[c.ID]) {
+			return true
+		}
+	}
+	for _, o := range r.Observations {
+		if blockingDiagnostics(o.Diagnostics, failed[o.ID]) {
+			return true
+		}
+	}
+	return false
+}
+
+func blockingDiagnostics(diagnostics []Diagnostic, knownFailure bool) bool {
+	for _, d := range diagnostics {
+		if !knownFailure || d.Code != "COMMAND_FAILED" {
+			return true
+		}
+	}
+	return false
 }

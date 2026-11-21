@@ -85,6 +85,28 @@ func TestCLIContracts(t *testing.T) {
 		t.Fatal("invalid configuration invoked provider")
 	}
 }
+func TestExpectedRevisionArguments(t *testing.T) {
+	revision := "0123456789012345678901234567890123456789"
+	for _, args := range [][]string{
+		{"verify", "--expect-revision", revision},
+		{"verify", "--expect-revision=" + revision},
+	} {
+		a, err := parse(args)
+		if err != nil || a.expectedRevision != revision {
+			t.Fatal(a, err)
+		}
+	}
+	for _, args := range [][]string{
+		{"verify", "--expect-revision", revision[:7]},
+		{"verify", "--expect-revision", revision, "--expect-revision", revision},
+		{"doctor", "--expect-revision", revision},
+	} {
+		if _, err := parse(args); config.Code(err) != "INVALID_ARGUMENT" {
+			t.Fatal(args, err)
+		}
+	}
+}
+
 func TestSubprocessCommands(t *testing.T) {
 	root := t.TempDir()
 	binary := filepath.Join(root, "itervyn")

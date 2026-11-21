@@ -23,7 +23,10 @@ func (a Adapter) Verify(ctx context.Context, q verify.Request) (out verify.Obser
 	if ctx.Err() != nil {
 		return fail(process.ContextReason(ctx))
 	}
-	b, err := config.Read(c.ProjectRoot, c.Providers.Invaris.Harness, config.MaxConfig)
+	if q.Strict() && (!q.SeparatedPolicy() || !verify.ExternalExecutable(c.ProjectRoot, c.Providers.Invaris.Executable)) {
+		return fail("UNTRUSTED_POLICY")
+	}
+	b, err := c.ReadHarness()
 	if err != nil {
 		if os.IsNotExist(err) {
 			return fail("HARNESS_MISSING")
@@ -33,6 +36,26 @@ func (a Adapter) Verify(ctx context.Context, q verify.Request) (out verify.Obser
 	h, err := ParseHarness(b)
 	if err != nil {
 		return fail(config.Code(err))
+	}
+	digest := config.Hash(b)
+	path := c.HarnessPath
+	if c.SchemaVersion == config.TrustedSchema {
+		path = c.RuntimeHarnessPath
+		out.Artifacts = append(out.Artifacts, verify.NativeArtifact{Path: "providers/invaris-harness.json", Data: b})
+		staged, err := c.ReadRuntimeHarness()
+		if err != nil || config.Hash(staged) != digest {
+			return fail("EVIDENCE_MISMATCH")
+		}
+	}
+	if q.Strict() {
+		if h.StoreSensitiveOutput {
+			return fail("UNTRUSTED_POLICY")
+		}
+		for _, g := range h.Guards {
+			if !verify.ExternalExecutable(c.ProjectRoot, g.Program) || len(g.EnvAllowlist) != 0 {
+				return fail("UNTRUSTED_POLICY")
+			}
+		}
 	}
 	identify := a.Identify
 	if identify == nil {
@@ -47,7 +70,11 @@ func (a Adapter) Verify(ctx context.Context, q verify.Request) (out verify.Obser
 		return fail("IO_ERROR")
 	}
 	defer os.RemoveAll(tmp)
-	s := process.Spec{Executable: id.Path, ExpectedSHA256: id.SHA256, Args: []string{"check", "--format", "json", c.HarnessPath}, Dir: c.ProjectRoot, Env: process.Environment(c.Execution.EnvironmentAllowlist, tmp), Timeout: time.Duration(c.Execution.ProviderTimeoutSeconds) * time.Second, StdoutLimit: c.Execution.StdoutLimitBytes, StderrLimit: c.Execution.StderrLimitBytes}
+	env := process.Environment(c.Execution.EnvironmentAllowlist, tmp)
+	if q.Strict() {
+		env = []string{"PATH=/usr/bin:/bin", "TMPDIR=" + tmp}
+	}
+	s := process.Spec{Executable: id.Path, ExpectedSHA256: id.SHA256, Args: []string{"check", "--format", "json", path}, Dir: c.ProjectRoot, Env: env, Timeout: time.Duration(c.Execution.ProviderTimeoutSeconds) * time.Second, StdoutLimit: c.Execution.StdoutLimitBytes, StderrLimit: c.Execution.StderrLimitBytes}
 	runner := a.Runner
 	if runner == nil {
 		runner = process.Local{}
@@ -57,21 +84,33 @@ func (a Adapter) Verify(ctx context.Context, q verify.Request) (out verify.Obser
 	out.Result.StartedAt = verify.Ptr(o.StartedAt)
 	out.Result.FinishedAt = verify.Ptr(o.FinishedAt)
 	out.Result.ExecutableSHA256 = verify.Ptr(id.SHA256)
-	out.Artifacts = []verify.NativeArtifact{{Path: "providers/invaris.json", Data: o.Stdout}, {Path: "providers/invaris.stderr", Data: o.Stderr}, {Path: "providers/invaris.process.json", Data: process.RecordJSON(id, s, o)}}
+	out.Artifacts = append([]verify.NativeArtifact{
+		{Path: "providers/invaris.json", Data: o.Stdout},
+		{Path: "providers/invaris.stderr", Data: o.Stderr},
+		{Path: "providers/invaris.process.json", Data: process.RecordJSON(id, s, o)},
+	}, out.Artifacts...)
 	if o.Reason != "" {
 		return fail(o.Reason)
 	}
 	if o.ExecutableSHA256 != id.SHA256 {
 		return fail("EVIDENCE_MISMATCH")
 	}
-	after, err := config.Read(c.ProjectRoot, c.Providers.Invaris.Harness, config.MaxConfig)
-	if err != nil || config.Hash(after) != config.Hash(b) {
+	after, err := c.ReadRuntimeHarness()
+	if err != nil || config.Hash(after) != digest {
 		return fail("EVIDENCE_MISMATCH")
 	}
-	r, err := validateReport(o.Stdout, h, c.ProjectRoot, config.Hash(b), o.ExitCode)
+	if c.SchemaVersion == config.TrustedSchema {
+		source, err := c.ReadHarness()
+		if err != nil || config.Hash(source) != digest {
+			return fail("EVIDENCE_MISMATCH")
+		}
+	}
+	r, err := validateReport(o.Stdout, h, c.ProjectRoot, digest, o.ExitCode)
 	if err != nil {
 		return fail(config.Code(err))
 	}
+	out.Git = &verify.GitSnapshot{Revision: r.GitRevision, Dirty: r.GitDirty}
+	out.Incomplete = r.incompleteEvidence()
 	out.Result.NativeDecision = verify.Ptr(r.Decision)
 	out.Result.NativeSchemaVersion = verify.Ptr(r.SchemaVersion)
 	switch r.Decision {
@@ -81,6 +120,16 @@ func (a Adapter) Verify(ctx context.Context, q verify.Request) (out verify.Obser
 		out.Result.Status = verify.Fail
 	case "REFUSE":
 		out.Result.Status = verify.Inconclusive
+	}
+	if q.Strict() && len(r.Compatibility.Warnings) != 0 {
+		out.Result.NativeReasons = append(out.Result.NativeReasons, "COMPATIBILITY_WARNING")
+	}
+	if q.Strict() {
+		for _, o := range r.Observations {
+			for _, d := range o.Diagnostics {
+				out.Result.NativeReasons = append(out.Result.NativeReasons, d.Code)
+			}
+		}
 	}
 	for _, d := range r.Diagnostics {
 		out.Result.NativeReasons = append(out.Result.NativeReasons, d.Code)

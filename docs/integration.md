@@ -1,6 +1,6 @@
 # Terminal, agents and CI
 
-Use the same command at every boundary:
+Run local verification with the working tree and policy you are developing.
 
 ```sh
 itervyn verify --config itervyn.json --format json
@@ -66,19 +66,60 @@ server, agent execution API or Panda Suite modification is required.
 
 ## CI enforcement
 
-Provision approved tools independently of agent-controlled outputs, then make the
-same verify command a required CI step. Nonzero status fails the job:
+The [revision gate workflow](../.github/workflows/revision-gate.yml) checks
+the GitHub event's exact candidate SHA. On `pull_request`, this is GitHub's
+synthetic test merge of the PR with its base. On `merge_group`, it is the
+queue's integration commit, which can also include earlier queued changes.
+For manual dispatch it is the chosen ref's event commit. The PR branch head
+is useful for feedback on that branch alone. Require the merge queue if the
+gate must run on the current integration candidate even when the target
+branch advances. Merge methods can produce different eventual commit IDs.
+The result attests to the SHA it actually checked.
+[GitHub Actions events](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows)
+[GitHub merge queue](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue)
 
-```yaml
-- name: Verification
-  run: itervyn verify --config itervyn.json --format json
-```
+The workflow builds Itervyn and the import guard from a separate checkout of
+the maintainer-selected policy SHA. It builds Invaris from a pinned release
+commit. The candidate is a fresh, disposable checkout with no persisted
+checkout credentials and no build outputs. The trusted launcher puts the one
+staged harness at its reserved path, adds the exact path to the disposable
+checkout's Git exclude file, and removes the staged file after verification.
+Existing files at the reserved path are refused. Keep generated input and
+output out of this checkout. Git reports other untracked and ignored files
+as dirty under the gate.
 
-Protect the workflow, trusted tool provisioning and accepted configuration through
-repository controls; a prompt or a check in a writable task repository cannot
-enforce itself against an actor able to remove it. Preserve private run output in
-an access-controlled CI artifact when required. Avoid publishing raw streams.
-An Evaris store must be prepared/imported before this step if Evaris is required.
+The launcher runs the trusted verifier, provider and guard in an unprivileged
+container with a cleared environment, a read-only root filesystem and
+read-only subject, policy and binary mounts. The container has no network or
+CI credentials. The guard parses Go imports from `internal/verify` and rejects
+imports under Itervyn's canonical provider adapter namespace without executing candidate code.
+The existing compatibility workflow runs candidate tests separately. The gate
+uploads the verdict, event, candidate and policy IDs, and native provider release and revision. Raw streams and
+native evidence stay in the private evidence directory during the job.
+
+### Maintainer setup
+
+1. Review and land a bootstrap commit containing the workflow, launcher,
+   verifier, harness and guard. Approve that full SHA on a protected ref and
+   set the repository Actions variable `ITERVYN_TRUSTED_POLICY_SHA` to it.
+   Keep the gate optional until this commit exists and a protected run
+   succeeds. A missing or invalid pin fails the job. Update the pin only after
+   independently reviewing future policy commits.
+2. Require this workflow from a protected source using an organization or
+   enterprise ruleset, or run the equivalent check from independent CI and
+   require that check from its trusted integration. The job name is
+   `Verify integration candidate`. A status name alone can be reproduced by
+   an editable workflow from the same GitHub Actions app. Protect the source
+   workflow, approved policy ref and variable administration. Apply the rule
+   to the merge target. Configure code-owner review for policy and workflow
+   changes, restrict bypass and direct pushes, and require the merge queue
+   if gating on queue commits.
+3. Exercise a normal PR and a merge-group run. Check the artifact SHA against
+   the integration SHA and confirm a fixture that adds a forbidden import
+   and weakens candidate policy still fails. Enable the rule after those
+   checks. Keep the provider compatibility job required separately if desired.
+
+[GitHub ruleset workflow rules](https://docs.github.com/en/enterprise-cloud@latest/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets#require-workflows-to-pass-before-merging)
 
 ## Compatibility
 

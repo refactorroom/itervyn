@@ -13,28 +13,40 @@ def main():
     args = parser.parse_args()
     root = Path(__file__).resolve().parent.parent
     validators = {}
-    for name in ['config', 'result', 'diagnostic', 'doctor']:
-        schema = json.loads((root / 'schemas' / f'{name}-v1alpha1.schema.json').read_text())
+    for path in sorted((root / 'schemas').glob('*.schema.json')):
+        schema = json.loads(path.read_text())
         Draft202012Validator.check_schema(schema)
-        validators[name] = Draft202012Validator(schema, format_checker=FormatChecker())
-    validators['config'].validate(json.loads((root / 'examples/go-project/itervyn.json').read_text()))
+        version = schema['properties']['schemaVersion']['const']
+        validators[version] = Draft202012Validator(schema, format_checker=FormatChecker())
+
+    def validate(path):
+        sample = json.loads(path.read_text())
+        validators[sample['schemaVersion']].validate(sample)
+        return sample
+
+    validate(root / 'examples/go-project/itervyn.json')
+    validate(root / '.itervyn-policy/itervyn.json')
     records = sorted(args.evidence.rglob('result.json')) if args.evidence else []
     if args.evidence and not records:
         raise SystemExit('no actual result records found')
+    samples = {}
     for path in records:
-        validators['result'].validate(json.loads(path.read_text()))
-        validators['config'].validate(json.loads((path.parent / 'config.json').read_text()))
-    if records:
-        sample = json.loads(records[-1].read_text())
-        for key, value in [('providers', None), ('status', 'MAYBE'), ('unknown', True)]:
+        sample = validate(path)
+        validate(path.parent / 'config.json')
+        samples[sample['schemaVersion']] = sample
+    for sample in samples.values():
+        mutations = [('providers', None), ('status', 'MAYBE'), ('unknown', True)]
+        if 'revisionGate' in sample:
+            mutations.append(('revisionGate', None))
+        for key, value in mutations:
             invalid = copy.deepcopy(sample)
             invalid[key] = value
             try:
-                validators['result'].validate(invalid)
+                validators[sample['schemaVersion']].validate(invalid)
             except ValidationError:
                 continue
             raise SystemExit('invalid control unexpectedly accepted')
-    print(f'4 schemas and example valid; {len(records)} actual result/config pairs checked')
+    print(f'{len(validators)} schemas and example configs valid; {len(records)} actual result/config pairs checked')
 
 
 if __name__ == '__main__':

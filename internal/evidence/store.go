@@ -23,18 +23,22 @@ func (Store) Begin(ctx context.Context, c config.Resolved, id string) (verify.Ru
 	if !config.IDPattern.MatchString(id) {
 		return h, config.Err("PATH_UNSAFE", "run identifier")
 	}
-	if err := config.CheckDescendants(c.ProjectRoot, c.Evidence.Directory, true); err != nil {
+	if err := config.CheckAbsolute(c.EvidenceDir, true); err != nil {
 		return h, err
 	}
-	r, err := os.OpenRoot(c.ProjectRoot)
+	r, err := os.OpenRoot(string(filepath.Separator))
 	if err != nil {
 		return h, err
 	}
 	defer r.Close()
-	if err = r.MkdirAll(c.Evidence.Directory, 0700); err != nil {
+	rel, err := filepath.Rel(string(filepath.Separator), c.EvidenceDir)
+	if err != nil {
 		return h, err
 	}
-	if err = r.Mkdir(filepath.Join(c.Evidence.Directory, id), 0700); err != nil {
+	if err = r.MkdirAll(rel, 0700); err != nil {
+		return h, err
+	}
+	if err = r.Mkdir(filepath.Join(rel, id), 0700); err != nil {
 		return h, err
 	}
 	return h, nil

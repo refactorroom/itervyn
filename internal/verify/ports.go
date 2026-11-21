@@ -7,17 +7,20 @@ import (
 )
 
 type Request struct {
-	Config    config.Resolved
-	RunID     string
-	StartedAt time.Time
+	Config           config.Resolved
+	RunID            string
+	StartedAt        time.Time
+	ExpectedRevision string
 }
 type NativeArtifact struct {
 	Path string
 	Data []byte
 }
 type Observation struct {
-	Result    ProviderResult
-	Artifacts []NativeArtifact
+	Result     ProviderResult
+	Artifacts  []NativeArtifact
+	Git        *GitSnapshot
+	Incomplete bool
 }
 type Provider interface {
 	Name() string

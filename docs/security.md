@@ -16,11 +16,11 @@ Only PATH, an owned TMPDIR and explicitly allowlisted existing environment
 variables are passed. Environment values are not logged. Trusted harness tools
 may invoke their own shells, interpreters, network or subprocesses. A detached
 descendant that escapes its process group is outside termination guarantees.
-There is no filesystem/network isolation and no rollback of command side effects.
+These local process controls provide no filesystem or network isolation and no rollback of command side effects.
 
 Explicit project/store anchors and config-parent anchors are canonicalized. Under
 these anchors, links/special files and traversal are refused; reads/writes use
-rooted filesystem operations. Relative evidence remains under the project root.
+rooted filesystem operations. Relative evidence remains under the project root. The revision gate requires an external destination.
 Exclusive creation prevents overwrites and collisions. This does not defend
 against a malicious process running with the same user permissions replacing
 trusted anchors, modifying tools or forging all evidence and hashes together.
@@ -32,11 +32,29 @@ safe application summaries rather than raw native logs. Redaction is not complet
 and private evidence should not be uploaded publicly. Inspect and sanitize a copy
 before sharing; retain the original hash/evidence relationship privately.
 
-Git revision/dirty state is optional context, obtained through bounded read-only
-commands with fsmonitor and optional locks disabled. It is not a working-tree
-snapshot. Direct checks run against a live directory; concurrent edits are not
-fully isolated. Harness and executable identities are rechecked, while the
-trusted native tools remain responsible for their own observation semantics.
+Ungated Git provenance is optional. The revision gate samples Git before and
+after provider execution and compares native Invaris provenance. These are
+point-in-time observations. They do not detect every change-and-revert between
+observations or prove continuous immutability. Git status also has no knowledge
+of empty directories, external files or the contents of ignored paths after
+they have been removed. CI begins with a new checkout without materialized
+submodules and exposes it read-only to the verifying processes.
+
+The [CI launcher](integration.md#ci-enforcement) uses a credential-free,
+network-disabled container. Candidate files are data read by trusted programs.
+The container writes run evidence only to a separate mount. Treat background
+processes on the host, the container runtime, the mounted policy tools and
+the launcher as trusted. Itervyn checks native harness digest equality even if
+a file changed and reverted during the invocation. The CI mount additionally
+prevents writes to the staged harness, policy or candidate by container
+processes. A direct CLI invocation on a writable filesystem provides no
+equivalent protection. A private temp directory does not isolate programs
+sharing its owner's privileges.
+
+If a future guard must run candidate code, isolate that execution from the
+trusted verifier, native provider and evidence writer with a separate OS or
+container boundary. Pass only scoped observations across it. The current
+verifier container's evidence mount is writable by its own processes.
 
 ## Interruption and recovery
 

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "itervyn.config/v1alpha2",
+  "project": {"root": "/candidate", "requireCleanTree": true},
+  "execution": {"environmentAllowlist": []},
+  "providers": {
+    "invaris": {"enabled": true, "required": true, "executable": "/trusted/bin/invaris"}
+  },
+  "evidence": {"directory": "/evidence/runs"}
+}

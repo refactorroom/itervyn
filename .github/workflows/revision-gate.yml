@@ -1,0 +1,87 @@
+name: Itervyn revision gate
+on:
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  revision-gate:
+    name: Verify integration candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GOTOOLCHAIN: local
+      GOPROXY: 'off'
+      GOSUMDB: 'off'
+      CGO_ENABLED: '0'
+      INVARIS_VERSION: v0.5.1
+      INVARIS_REVISION: 4288474011435b45bb49f5ae93736ee5b2a2f715
+      POLICY_SHA: ${{ vars.ITERVYN_TRUSTED_POLICY_SHA }}
+      CANDIDATE_SHA: ${{ github.sha }}
+    steps:
+      - name: Require independently selected policy
+        shell: bash
+        run: |
+          if [[ ! "$POLICY_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Set ITERVYN_TRUSTED_POLICY_SHA to an approved policy commit before enabling the required gate."
+            exit 1
+          fi
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.POLICY_SHA }}
+          path: trusted
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          path: candidate
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: refactorroom/invaris
+          ref: refs/tags/${{ env.INVARIS_VERSION }}
+          path: native-invaris
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version-file: trusted/go.mod
+          cache: false
+      - name: Build trusted verifier, policy guard and native provider
+        shell: bash
+        run: |
+          test "$(git -C trusted rev-parse HEAD)" = "$POLICY_SHA"
+          test "$(git -C native-invaris rev-parse HEAD)" = "$INVARIS_REVISION"
+          mkdir "$RUNNER_TEMP/gate-bin" "$RUNNER_TEMP/gate-evidence"
+          (cd trusted && go build -trimpath -o "$RUNNER_TEMP/gate-bin/itervyn" ./cmd/itervyn)
+          (cd trusted && go build -trimpath -o "$RUNNER_TEMP/gate-bin/verify-imports" ./.itervyn-policy/guard)
+          (cd native-invaris && go build -trimpath \
+            -ldflags "-X github.com/akkaraponph/invaris/internal/engine.releaseVersion=$INVARIS_VERSION" \
+            -o "$RUNNER_TEMP/gate-bin/invaris" ./cmd/invaris)
+          test "$("$RUNNER_TEMP/gate-bin/invaris" --version)" = "invaris $INVARIS_VERSION"
+      - name: Verify launcher restores checkout metadata
+        shell: bash
+        run: bash trusted/.itervyn-policy/tests/rerun.sh candidate "$RUNNER_TEMP/gate-bin"
+      - name: Check integration candidate
+        id: gate
+        shell: bash
+        run: |
+          bash trusted/.itervyn-policy/run-gate.sh candidate "$CANDIDATE_SHA" \
+            "$RUNNER_TEMP/gate-bin" "$RUNNER_TEMP/gate-evidence"
+      - name: Record candidate and policy revisions
+        if: always() && steps.gate.outcome != 'skipped'
+        shell: bash
+        run: |
+          printf 'Candidate commit: `%s`\n' "$CANDIDATE_SHA" >> "$GITHUB_STEP_SUMMARY"
+          printf 'Trusted policy commit: `%s`\n' "$POLICY_SHA" >> "$GITHUB_STEP_SUMMARY"
+          printf '{"candidate":"%s","policy":"%s","event":"%s","invarisRevision":"%s","invarisVersion":"%s"}\n' \
+            "$CANDIDATE_SHA" "$POLICY_SHA" "$GITHUB_EVENT_NAME" "$INVARIS_REVISION" "$INVARIS_VERSION" > "$RUNNER_TEMP/gate-evidence/provenance.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always() && steps.gate.outcome != 'skipped'
+        with:
+          name: itervyn-candidate-verdict
+          path: |
+            ${{ runner.temp }}/gate-evidence/result.json
+            ${{ runner.temp }}/gate-evidence/provenance.json
+          if-no-files-found: error

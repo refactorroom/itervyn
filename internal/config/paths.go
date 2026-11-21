@@ -95,3 +95,10 @@ func ReadAbsolute(path string, limit int64) ([]byte, error) {
 	}
 	return Read(anchor, filepath.Base(abs), limit)
 }
+
+func CheckAbsolute(path string, missing bool) error {
+	if !filepath.IsAbs(path) {
+		return Err("PATH_UNSAFE", "expected absolute path")
+	}
+	return CheckDescendants(string(filepath.Separator), strings.TrimPrefix(path, string(filepath.Separator)), missing)
+}

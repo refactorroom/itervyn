@@ -15,14 +15,15 @@ import (
 
 const usage = `usage: itervyn <init|doctor|verify|inspect|version> [flags]
   init, doctor, verify: [--config PATH] [--format text|json]
+  verify: [--expect-revision FULL_COMMIT_ID]
   inspect RUN_ID: [--config PATH] [--format text|json]
   version: [--format text|json]
   --help, -h: show help
 `
 
 type arguments struct {
-	command, config, format, id string
-	help                        bool
+	command, config, format, id, expectedRevision string
+	help                                          bool
 }
 
 func parse(args []string) (arguments, error) {
@@ -51,7 +52,9 @@ func parse(args []string) (arguments, error) {
 		if strings.HasPrefix(s, "--") {
 			parts := strings.SplitN(s, "=", 2)
 			key := parts[0]
-			if seen[key] || key != "--config" && key != "--format" || a.command == "version" && key == "--config" {
+			allowed := key == "--format" || key == "--config" && a.command != "version" ||
+				key == "--expect-revision" && a.command == "verify"
+			if seen[key] || !allowed {
 				return a, config.Err("INVALID_ARGUMENT", "unknown or repeated flag")
 			}
 			seen[key] = true
@@ -68,10 +71,16 @@ func parse(args []string) (arguments, error) {
 			if v == "" {
 				return a, config.Err("INVALID_ARGUMENT", "empty flag value")
 			}
-			if key == "--config" {
+			switch key {
+			case "--config":
 				a.config = v
-			} else {
+			case "--format":
 				a.format = v
+			case "--expect-revision":
+				if !config.RevisionPattern.MatchString(v) {
+					return a, config.Err("INVALID_ARGUMENT", "expected revision must be a full lowercase commit ID")
+				}
+				a.expectedRevision = v
 			}
 			continue
 		}
@@ -132,7 +141,7 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer, service v
 				ResultSchemas     []string `json:"resultSchemas"`
 				DiagnosticSchemas []string `json:"diagnosticSchemas"`
 				DoctorSchemas     []string `json:"doctorSchemas"`
-			}{verify.Version, []string{config.Schema}, []string{verify.ResultSchema}, []string{verify.DiagnosticSchema}, []string{verify.DoctorSchema}})
+			}{verify.Version, []string{config.Schema, config.TrustedSchema}, []string{verify.ResultSchema, verify.GatedResultSchema}, []string{verify.DiagnosticSchema}, []string{verify.DoctorSchema}})
 		} else {
 			_, err = fmt.Fprintln(stdout, "itervyn", verify.Version)
 		}
@@ -165,7 +174,7 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer, service v
 			return diagnostic(stdout, stderr, jsonMode, err)
 		}
 	} else {
-		result, err = service.Verify(ctx, verify.Request{Config: r})
+		result, err = service.Verify(ctx, verify.Request{Config: r, ExpectedRevision: a.expectedRevision})
 	}
 	if jsonMode {
 		if e := emit(stdout, result); e != nil {

@@ -3,11 +3,13 @@ package verify
 import (
 	"github.com/akkaraponph/itervyn/internal/config"
 	"path/filepath"
+	"reflect"
 )
 
 func KnownCode(code string) bool {
 	switch code {
-	case "INVALID_ARGUMENT", "INVALID_CONFIG", "UNSUPPORTED_SCHEMA", "UNSUPPORTED_TOOL", "UNSUPPORTED_ACTION", "PATH_UNSAFE", "TOOL_MISSING", "HARNESS_MISSING", "PREREQUISITE_MISSING", "TIMEOUT", "CANCELED", "OUTPUT_LIMIT", "OUTPUT_MISSING", "OUTPUT_INVALID", "EXIT_MISMATCH", "EVIDENCE_MISMATCH", "EVIDENCE_CORRUPT", "IO_ERROR", "INTERNAL_ERROR", "INCOMPLETE_RUN", "RUN_NOT_FOUND":
+	case "INVALID_ARGUMENT", "INVALID_CONFIG", "UNSUPPORTED_SCHEMA", "UNSUPPORTED_TOOL", "UNSUPPORTED_ACTION", "PATH_UNSAFE", "TOOL_MISSING", "HARNESS_MISSING", "PREREQUISITE_MISSING", "TIMEOUT", "CANCELED", "OUTPUT_LIMIT", "OUTPUT_MISSING", "OUTPUT_INVALID", "EXIT_MISMATCH", "EVIDENCE_MISMATCH", "EVIDENCE_CORRUPT", "IO_ERROR", "INTERNAL_ERROR", "INCOMPLETE_RUN", "RUN_NOT_FOUND",
+		"UNTRUSTED_POLICY", "REVISION_REQUIRED", "GIT_UNAVAILABLE", "GIT_STATUS_UNAVAILABLE", "REVISION_MISMATCH", "REVISION_MOVED", "GIT_DIRTY", "PROVENANCE_CONFLICT", "LIVE_EVIDENCE_REQUIRED", "EVIDENCE_INCOMPLETE":
 		return true
 	}
 	return false
@@ -18,22 +20,17 @@ func ValidStatus(s Status) bool { return s == Pass || s == Fail || s == Inconclu
 // It does not re-run native checks or authenticate evidence against a signer.
 func ValidateResult(r Result) error {
 	bad := func() error { return config.Err("EVIDENCE_CORRUPT", "result invariants") }
-	if r.SchemaVersion != ResultSchema {
+	if r.SchemaVersion != ResultSchema && r.SchemaVersion != GatedResultSchema {
 		return config.Err("UNSUPPORTED_SCHEMA", "result version")
+	}
+	if (r.SchemaVersion == GatedResultSchema) != (r.RevisionGate != nil) {
+		return bad()
 	}
 	if !config.IDPattern.MatchString(r.RunID) || r.TaskID != nil || !ValidStatus(r.Status) || r.StartedAt.IsZero() || r.FinishedAt.IsZero() || r.FinishedAt.Before(r.StartedAt) || r.ConfigSHA256 == nil || !config.DigestPattern.MatchString(*r.ConfigSHA256) || r.ProjectRoot == nil || !filepath.IsAbs(*r.ProjectRoot) || !r.EvidencePersisted || r.Providers == nil || r.Feedback == nil || r.Warnings == nil || r.Artifacts == nil {
 		return bad()
 	}
-	if r.GitRevision != nil {
-		n := len(*r.GitRevision)
-		if n != 40 && n != 64 {
-			return bad()
-		}
-		for _, c := range *r.GitRevision {
-			if !(c >= 'a' && c <= 'f' || c >= '0' && c <= '9') {
-				return bad()
-			}
-		}
+	if !validRevision(r.GitRevision) {
+		return bad()
 	}
 	for _, f := range append(append([]Feedback{}, r.Feedback...), r.Warnings...) {
 		if !KnownCode(f.Code) && f.Code != "NATIVE_OUTCOME" {
@@ -114,6 +111,23 @@ func ValidateResult(r Result) error {
 		}
 	}
 	s, n := Aggregate(r.Providers)
+	if g := r.RevisionGate; g != nil {
+		if !validRevision(g.ExpectedRevision) || !validSnapshot(g.Before) || !validSnapshot(g.After) ||
+			!reflect.DeepEqual(g.Before, GitSnapshot{Revision: r.GitRevision, Dirty: r.GitDirty}) ||
+			g.Incomplete == nil || (g.Invaris != nil && (!seen["invaris"] || !validSnapshot(*g.Invaris))) {
+			return bad()
+		}
+		recorded := map[string]bool{}
+		for _, name := range g.Incomplete {
+			if !seen[name] || recorded[name] {
+				return bad()
+			}
+			recorded[name] = true
+		}
+		if len(g.blockers(r.Providers)) > 0 && s == Pass {
+			s, n = Inconclusive, Investigate
+		}
+	}
 	if r.Status == Inconclusive && r.NextAction == Stop {
 		for _, f := range r.Feedback {
 			if f.Code == "CANCELED" {
@@ -129,4 +143,12 @@ func ValidateResult(r Result) error {
 		return bad()
 	}
 	return nil
+}
+
+func validRevision(revision *string) bool {
+	return revision == nil || config.RevisionPattern.MatchString(*revision)
+}
+
+func validSnapshot(g GitSnapshot) bool {
+	return validRevision(g.Revision)
 }

@@ -24,7 +24,7 @@ in an archive. Review SHA256SUMS and rehearse extraction plus `itervyn version`
 before any authorized publication. Cross-building alone does not prove native
 execution, especially on the other CPU architecture.
 
-Configuration/result/diagnostic/doctor schemas are `/v1alpha1`; unknown versions
+Local configuration and results support `/v1alpha1`. The trusted configuration and revision gate result use `/v1alpha2`. Diagnostic and doctor schemas use `/v1alpha1`. Unknown versions
 or fields are refused. No 0.x cross-minor compatibility or evidence-store migration
 is promised. Supported provider releases and profiles are documented in
 [integration](integration.md). Upgrading a provider or evidence shape requires

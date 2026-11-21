@@ -2,6 +2,7 @@ name: Verify
 on:
   pull_request:
     branches: [main]
+  merge_group:
   push:
     branches: [main]
   schedule:
@@ -19,6 +20,8 @@ jobs:
       GOSUMDB: 'off'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
       - name: Resolve latest stable provider releases
         id: releases
         env:
@@ -52,11 +55,12 @@ jobs:
           go-version-file: go.mod
           cache: false
       - name: Format
-        run: test -z "$(gofmt -l cmd internal examples)"
+        run: test -z "$(gofmt -l cmd internal examples .itervyn-policy/guard)"
       - name: Build and vet
         run: |
           go build ./...
           go vet ./...
+          go vet ./.itervyn-policy/guard
       - name: Build native tools from release tags
         env:
           INVARIS_TAG: ${{ steps.releases.outputs.invaris }}
